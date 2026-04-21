@@ -117,6 +117,6 @@ void RobotGeometry_AnglesToMotorUnits(RobotAngles* angles, RobotMotorUnits* unit
 
     // 纯几何映射
     units->rotUnits  = (int32_t)(angles->rot  * UNITS_PER_DEGREE);
-    units->lowUnits  = (int32_t)(angles->low  * UNITS_PER_DEGREE);
-    units->highUnits = (int32_t)(angles->high * UNITS_PER_DEGREE);
+    units->lowUnits  = -(int32_t)(angles->low  * UNITS_PER_DEGREE);
+    units->highUnits = -(int32_t)(angles->high * UNITS_PER_DEGREE);
 }

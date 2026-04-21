@@ -137,9 +137,13 @@ int main(void)
   LedState_t my_pattern[LED_COUNT] = {LED_ON, LED_OFF, LED_ON, LED_OFF};
   BSP_LED_SetAllStates(my_pattern);
 
-  Motion_Planner_MoveLine(100.0f, 180.0f, 240.0f, 2000);
+  Motion_Planner_MoveLine(0.0f, 185.0f, 240.0f, 2000);
   HAL_Delay(2500);
-  Motion_Planner_MoveLine(0.0f, 180.0f, 240.0f, 2000);
+  Motion_Planner_MoveLine(50.0f, 185.0f, 240.0f, 2000);
+  HAL_Delay(2500);
+  Motion_Planner_MoveLine(50.0f, 235.0f, 240.0f, 2000);
+  HAL_Delay(2500);
+  Motion_Planner_MoveLine(0.0f, 235.0f, 240.0f, 2000);
   HAL_Delay(2500);
 
   }
