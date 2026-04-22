@@ -33,6 +33,7 @@
 #include "gcode_parser.h"
 #include "cmd_executor.h"
 #include "bsp_uart1.h"
+#include<stdio.h>
 
 /* USER CODE END Includes */
 
@@ -138,31 +139,34 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-    /* USER CODE END WHILE */
-
-    /* USER CODE BEGIN 3 */
-
   LedState_t my_pattern[LED_COUNT] = {LED_OFF, LED_OFF, LED_ON, LED_OFF};
   BSP_LED_SetAllStates(my_pattern);
-  // 1. 尝试从串口提取完整的�?行指令（非阻塞）
-      if (BSP_UART1_ReadLine(rx_line, sizeof(rx_line))) 
+
+    if (BSP_UART1_ReadLine(rx_line, sizeof(rx_line))) 
       {
-          // 2. 纯软件层：解析字符串
+          printf(">> Received raw line: [%s]\r\n", rx_line);
           if (GCode_ParseLine(rx_line, &gcode_frame)) 
           {
-              // 3. 执行层：分发指令给底层运动规�?
+              printf(">> Parsed OK: Type=%d, X=%.1f, Y=%.1f, Z=%.1f, F=%lu\r\n", 
+                     gcode_frame.type, 
+                     gcode_frame.has_x ? gcode_frame.x : -999.0f,
+                     gcode_frame.has_y ? gcode_frame.y : -999.0f,
+                     gcode_frame.has_z ? gcode_frame.z : -999.0f,
+                     gcode_frame.f);
+
               Cmd_Executor_Run(&gcode_frame);
-              
-            
-               
+              printf("ok\r\n"); 
           }
           else 
           {
-              // printf("error: invalid format\n");
+              printf("error: Parse failed!\r\n");
           }
       }
-      
-      // 此处可以处理流水灯�?�按键�?�停等其他非阻塞任务
+
+
+    /* USER CODE END WHILE */
+
+    /* USER CODE BEGIN 3 */
   }
 
   
