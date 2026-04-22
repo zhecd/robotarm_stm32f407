@@ -5,7 +5,7 @@
 #include <stdlib.h>        
 #include <math.h>          
 
-#define TICKS_PER_MS  20
+#define TICKS_PER_MS  50
 #define LINEAR_STEP_MM 1.0f 
 
 // ==============================================================
