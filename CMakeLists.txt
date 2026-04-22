@@ -56,6 +56,10 @@ target_sources(${CMAKE_PROJECT_NAME} PRIVATE
     Core/Src/robotGeometry.c
     Core/Src/motion_planner.c
     Core/Src/bsp_tmc2209.c
+    Core/Src/bsp_uart1.c
+    Core/Src/gcode_parser.c
+    Core/Src/cmd_executor.c
+
 )
 
 # Add include paths

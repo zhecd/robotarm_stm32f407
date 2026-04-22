@@ -18,6 +18,7 @@
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
+#include "bsp_uart1.h"
 #include "tim.h"
 #include "usart.h"
 #include "gpio.h"
@@ -30,6 +31,9 @@
 #include "bsp_tmc2209.h"
 #include "motor_core.h"
 #include "motion_planner.h"
+#include "gcode_parser.h"
+#include "cmd_executor.h"
+#include "bsp_uart1.h"
 
 /* USER CODE END Includes */
 
@@ -79,7 +83,7 @@ int main(void)
   /* MCU Configuration--------------------------------------------------------*/
 
   /* Reset of all peripherals, Initializes the Flash interface and the Systick. */
-   HAL_Init();
+  HAL_Init();
 
   /* USER CODE BEGIN Init */
 
@@ -96,32 +100,36 @@ int main(void)
   MX_GPIO_Init();
   MX_TIM6_Init();
   MX_USART6_UART_Init();
+  MX_USART1_UART_Init();
   /* USER CODE BEGIN 2 */
   BSP_LED_Init(); // 初始化LED
-
   BSP_Stepper_Init(); // 初始化步进电机驱动，设置默认状�??
+  BSP_UART1_Init(); // 初始化 UART1 接收 G-code 指令
 
   BSP_Stepper_Enable(&Motor_M1, true);// 启用电机1
   BSP_Stepper_Enable(&Motor_M2, true);// 启用电机2
   BSP_Stepper_Enable(&Motor_M3, true);// 启用电机3
 
-  extern UART_HandleTypeDef huart6; // 确保声明了你的串口句�?
-  // �?0 (底座)：需要最大的力，16细分
+  extern UART_HandleTypeDef huart6; // 确保声明了你的串口句�??
+  // �??0 (底座)：需要最大的力，16细分
   BSP_TMC2209_ConfigNode(&huart6, 0,  16, 28, 15); 
 
-  // �?1 (大臂)：中等力�?16细分
+  // �??1 (大臂)：中等力�??16细分
   BSP_TMC2209_ConfigNode(&huart6, 1, 16, 28, 15); 
 
-  // �?2 (小臂)：负载极小，但为了极致顺滑，可以�? 32 细分，小电流
+  // �??2 (小臂)：负载极小，但为了极致顺滑，可以�?? 32 细分，小电流
   BSP_TMC2209_ConfigNode(&huart6, 2, 16, 28, 15);
 
   Motor_Core_Init(); //初始化环形缓冲区
-  Motion_Planner_Init(0.0f, 185.0f, 240.0f); // 设置初始位置�?(0, 185, 240)，即机械臂的默认位置
+  Motion_Planner_Init(0.0f, 185.0f, 240.0f); // 设置初始位置�??(0, 185, 240)，即机械臂的默认位置
   
 
 
   extern TIM_HandleTypeDef htim6; 
-  HAL_TIM_Base_Start_IT(&htim6);// 启动定时�?6的中断，�?始处理运动帧
+  HAL_TIM_Base_Start_IT(&htim6);// 启动定时�??6的中断，�??始处理运动帧
+
+  char rx_line[64];
+  GCodeFrame_t gcode_frame;
 
   /* USER CODE END 2 */
 
@@ -133,19 +141,30 @@ int main(void)
 
     /* USER CODE BEGIN 3 */
 
-  LedState_t my_pattern[LED_COUNT] = {LED_ON, LED_OFF, LED_ON, LED_OFF};
+  LedState_t my_pattern[LED_COUNT] = {LED_OFF, LED_OFF, LED_ON, LED_OFF};
   BSP_LED_SetAllStates(my_pattern);
-
-  Motion_Planner_MoveLine(0.0f, 185.0f, 240.0f, 2000);
-  HAL_Delay(2500);
-  Motion_Planner_MoveLine(50.0f, 185.0f, 240.0f, 2000);
-  HAL_Delay(2500);
-  Motion_Planner_MoveLine(50.0f, 235.0f, 240.0f, 2000);
-  HAL_Delay(2500);
-  Motion_Planner_MoveLine(0.0f, 235.0f, 240.0f, 2000);
-  HAL_Delay(2500);
-
+  // 1. 尝试从串口提取完整的一行指令（非阻塞）
+      if (BSP_UART1_ReadLine(rx_line, sizeof(rx_line))) 
+      {
+          // 2. 纯软件层：解析字符串
+          if (GCode_ParseLine(rx_line, &gcode_frame)) 
+          {
+              // 3. 执行层：分发指令给底层运动规划
+              Cmd_Executor_Run(&gcode_frame);
+              
+              // 可选：向上位机返回 OK
+              // printf("ok\n"); 
+          }
+          else 
+          {
+              // printf("error: invalid format\n");
+          }
+      }
+      
+      // 此处可以处理流水灯、按键急停等其他非阻塞任务
   }
+
+  
   /* USER CODE END 3 */
 }
 
