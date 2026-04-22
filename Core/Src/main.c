@@ -124,6 +124,7 @@ int main(void)
 
   Motor_Core_Init(); //初始化环形缓冲区
   Motion_Planner_Init(0.0f, 185.0f, 240.0f); // 设置初始位置�???(0, 185, 240)，即机械臂的默认位置
+  Cmd_Executor_Init(0.0f, 185.0f, 240.0f);  // 初始化执行器
   
 
 
@@ -147,12 +148,12 @@ int main(void)
           printf(">> Received raw line: [%s]\r\n", rx_line);
           if (GCode_ParseLine(rx_line, &gcode_frame)) 
           {
-              printf(">> Parsed OK: Type=%d, X=%.1f, Y=%.1f, Z=%.1f, F=%lu\r\n", 
-                     gcode_frame.type, 
-                     gcode_frame.has_x ? gcode_frame.x : -999.0f,
-                     gcode_frame.has_y ? gcode_frame.y : -999.0f,
-                     gcode_frame.has_z ? gcode_frame.z : -999.0f,
-                     gcode_frame.f);
+printf(">> Parsed OK: Type=%d, X=%d, Y=%d, Z=%d, F=%lu\r\n", 
+       gcode_frame.type, 
+       (int)gcode_frame.x,
+       (int)gcode_frame.y,
+       (int)gcode_frame.z,
+       gcode_frame.f);
 
               Cmd_Executor_Run(&gcode_frame);
               printf("ok\r\n"); 
