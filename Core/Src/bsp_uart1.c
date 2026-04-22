@@ -81,3 +81,6 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
     // 如果你以后还有串口 2、串口 3 的接收，也可以在这里继续加 if
     // else if (huart->Instance == USART2) { ... }
 }
+void BSP_UART1_SendString(char* str) {
+    HAL_UART_Transmit(&huart1, (uint8_t*)str, strlen(str), HAL_MAX_DELAY);
+}

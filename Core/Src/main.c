@@ -104,6 +104,8 @@ int main(void)
   BSP_LED_Init(); // 初始化LED
   BSP_Stepper_Init(); // 初始化步进电机驱动，设置默认状�??
   BSP_UART1_Init(); // 初始�? UART1 接收 G-code 指令
+  BSP_UART1_SendString("System Boot Up OK!\r\n");
+          
 
   BSP_Stepper_Enable(&Motor_M1, true);// 启用电机1
   BSP_Stepper_Enable(&Motor_M2, true);// 启用电机2

@@ -10,5 +10,6 @@
 void BSP_UART1_Init(void);
 bool BSP_UART1_ReadLine(char* out_line, uint16_t max_len);
 void BSP_UART1_RxCallback(void); // 供 HAL 串口中断调用
+void BSP_UART1_SendString(char* str);
 
 #endif
