@@ -156,40 +156,22 @@ int main(void)
   while (1)
   {
   LedState_t my_pattern[LED_COUNT] = {LED_OFF, LED_OFF, LED_ON, LED_OFF};
-  BSP_LED_SetAllStates(my_pattern);
+      BSP_LED_SetAllStates(my_pattern);
 
-    if (BSP_UART1_ReadLine(rx_line, sizeof(rx_line))) 
-      {
-          printf(">> Received raw line: [%s]\r\n", rx_line);
-          if (GCode_ParseLine(rx_line, &gcode_frame)) 
-          {
-printf(">> Parsed OK: Type=%d, X=%d, Y=%d, Z=%d, F=%lu\r\n", 
-       gcode_frame.type, 
-       (int)gcode_frame.x,
-       (int)gcode_frame.y,
-       (int)gcode_frame.z,
-       gcode_frame.f);
+      // 修复 Bug 3：初始化清零，防止读取失败时使用垃圾内存
+      PS2_Data_t my_ps2 = {0}; 
+      
+      // 记录手柄本帧是否通讯成功
+      bool is_ps2_connected = BSP_PS2_ReadData(&my_ps2);
 
-              Cmd_Executor_Run(&gcode_frame);
-              printf("ok\r\n"); 
-          }
-          else 
-          {
-              printf("error: Parse failed!\r\n");
-          }
-      }
-
-      PS2_Data_t my_ps2;
-  
-  // ========================================================
+      // ========================================================
       // 模块 1：手柄读取与模式安全切换
       // ========================================================
-      if (BSP_PS2_ReadData(&my_ps2))
+      if (is_ps2_connected)
       {
-          // 检测 SELECT 键的"单击" (按下瞬间触发，长按不重复触发)
+          // 检测 SELECT 键的"单击"
           if ((last_buttons & PS2_BTN_SELECT) && !(my_ps2.buttons & PS2_BTN_SELECT))
           {
-              // ★ 安全锁：必须等底层队列完全耗尽（电机停稳），才允许切换模式！
               if (Motor_Buffer_GetCount() == 0) {
                   current_sys_mode = (current_sys_mode == SYS_MODE_GCODE) ? SYS_MODE_PS2 : SYS_MODE_GCODE;
                   printf("\r\n>>> MODE SWITCHED TO: [%s] <<<\r\n", 
@@ -206,12 +188,10 @@ printf(">> Parsed OK: Type=%d, X=%d, Y=%d, Z=%d, F=%lu\r\n",
       // ========================================================
       if (current_sys_mode == SYS_MODE_GCODE)
       {
-          // --- [ 写字机模式 ] ---
-          // 依靠底层的 50ms 超时断帧或 \n 识别，读取一行指令
+          // 修复 Bug 4：去除了外面多余的 BSP_UART1_ReadLine 拦截
           if (BSP_UART1_ReadLine(rx_line, sizeof(rx_line))) 
           {
               printf(">> Received raw line: [%s]\r\n", rx_line);
-              // 如果解析成功，则交给执行器生成 S 曲线轨迹压入长队列
               if (GCode_ParseLine(rx_line, &gcode_frame)) {
                   Cmd_Executor_Run(&gcode_frame);
                   printf("ok\r\n");
@@ -222,28 +202,24 @@ printf(">> Parsed OK: Type=%d, X=%d, Y=%d, Z=%d, F=%lu\r\n",
       }
       else if (current_sys_mode == SYS_MODE_PS2)
       {
-          // --- [ 手柄遥控模式 ] ---
-          float dx = 0.0f, dy = 0.0f, dz = 0.0f;
-
-          // 1. 从 0~255 的模拟量映射为有符号整数 (-128 ~ +127)
-          // 注意：手柄摇杆向上推时值变小(0)，所以用 128 减去它来修正方向
-          int joy_ly = 128 - my_ps2.LY; 
-          int joy_lx = my_ps2.LX - 128; 
-          int joy_ry = 128 - my_ps2.RY; 
-
-          // 2. 摇杆死区消除 (防止摇杆老化不回中导致机械臂缓慢漂移)
-          // 每次最大步进量设为 1.5mm (你可以改大改小来调节遥控灵敏度)
-          if (abs(joy_ly) > 15) dx = (joy_ly / 128.0f) * 1.5f; // 左摇杆上下 -> 控制 X 轴
-          if (abs(joy_lx) > 15) dy = (joy_lx / 128.0f) * 1.5f; // 左摇杆左右 -> 控制 Y 轴
-          if (abs(joy_ry) > 15) dz = (joy_ry / 128.0f) * 1.5f; // 右摇杆上下 -> 控制 Z 轴
-
-          // 3. 如果摇杆被推动了，调用专用的无阻塞遥控喂食函数
-          if (dx != 0.0f || dy != 0.0f || dz != 0.0f) 
+          // 必须确保手柄正常通讯，才能解析摇杆（防止断连后乱飞）
+          if (is_ps2_connected) 
           {
-              Motion_Planner_TeleopStep(dx, dy, dz);
+              float dx = 0.0f, dy = 0.0f, dz = 0.0f;
+
+              int joy_ly = 128 - my_ps2.LY; 
+              int joy_lx = my_ps2.LX - 128; 
+              int joy_ry = 128 - my_ps2.RY; 
+
+              if (abs(joy_ly) > 15) dx = (joy_ly / 128.0f) * 1.5f; 
+              if (abs(joy_lx) > 15) dy = (joy_lx / 128.0f) * 1.5f; 
+              if (abs(joy_ry) > 15) dz = (joy_ry / 128.0f) * 1.5f; 
+
+              if (dx != 0.0f || dy != 0.0f || dz != 0.0f) 
+              {
+                  Motion_Planner_TeleopStep(dx, dy, dz);
+              }
           }
-          
-          // 给软件 SPI 接收器留一点喘息时间，防止过度拉低片选死机
           HAL_Delay(5); 
       }
 

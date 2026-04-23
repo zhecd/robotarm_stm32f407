@@ -51,13 +51,13 @@ bool BSP_PS2_ReadData(PS2_Data_t *ps2_data) {
     
     // 发送请求读取指令
     raw[0] = PS2_TransferByte(0x01); // Start 命令
-    raw[1] = PS2_TransferByte(0x42); // 请求数据
-    raw[2] = PS2_TransferByte(0x00); // 接收模式 ID (通常是 0x5A 或 0x73)
+    raw[1] = PS2_TransferByte(0x42); // 接收模式 ID (0x41绿灯, 0x73/0x79红灯)
+    raw[2] = PS2_TransferByte(0x00); // 接收就绪码 (必须是0x5A)
     
-    // 检查是否是有摇杆的红灯模式 (0x73) 或者 普通绿灯模式 (0x41)
-    if (raw[1] == 0x5A || raw[1] == 0x73) {
-        raw[3] = PS2_TransferByte(0x00); // Buttons 1
-        raw[4] = PS2_TransferByte(0x00); // Buttons 2
+    // 修复 Bug 1：使用标准就绪码 0x5A 校验，兼容所有手柄
+    if (raw[2] == 0x5A) {
+        raw[3] = PS2_TransferByte(0x00); // Buttons 1 (包含 Select)
+        raw[4] = PS2_TransferByte(0x00); // Buttons 2 (包含 L2)
         raw[5] = PS2_TransferByte(0x00); // Right Joy X
         raw[6] = PS2_TransferByte(0x00); // Right Joy Y
         raw[7] = PS2_TransferByte(0x00); // Left Joy X
@@ -66,8 +66,9 @@ bool BSP_PS2_ReadData(PS2_Data_t *ps2_data) {
         // 拉高片选，结束通信
         HAL_GPIO_WritePin(PS2_CS_GPIO_Port, PS2_CS_Pin, GPIO_PIN_SET);
         
-        // 解析数据
-        ps2_data->buttons = (raw[4] << 8) | raw[3];
+        // 修复 Bug 2：颠倒 raw[3] 和 raw[4] 以匹配 bsp_ps2.h 的宏定义
+        ps2_data->buttons = (raw[3] << 8) | raw[4];
+        
         ps2_data->RX = raw[5];
         ps2_data->RY = raw[6];
         ps2_data->LX = raw[7];
