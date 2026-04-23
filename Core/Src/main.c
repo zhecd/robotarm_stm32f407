@@ -114,6 +114,7 @@ int main(void)
   BSP_UART1_SendString("System Boot Up OK!\r\n");
   BSP_PS2_Init(); // 初始�? PS2 手柄接口
 
+
    // 延时等待底层稳定
   HAL_Delay(100);
   printf("\r\n================================\r\n");
@@ -149,6 +150,8 @@ int main(void)
   char rx_line[256];
   GCodeFrame_t gcode_frame;
 
+  uint32_t last_ps2_read_time = 0;
+
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -158,37 +161,57 @@ int main(void)
   LedState_t my_pattern[LED_COUNT] = {LED_OFF, LED_OFF, LED_ON, LED_OFF};
       BSP_LED_SetAllStates(my_pattern);
 
-      // 修复 Bug 3：初始化清零，防止读取失败时使用垃圾内存
-      PS2_Data_t my_ps2 = {0}; 
-      
-      // 记录手柄本帧是否通讯成功
-      bool is_ps2_connected = BSP_PS2_ReadData(&my_ps2);
-
       // ========================================================
-      // 模块 1：手柄读取与模式安全切换
+      // 模块 1：手柄读取与控制 (严格限制为 50Hz，即每 20ms 读取一次)
       // ========================================================
-      if (is_ps2_connected)
+      if (HAL_GetTick() - last_ps2_read_time >= 20) 
       {
-          // 检测 SELECT 键的"单击"
-          if ((last_buttons & PS2_BTN_SELECT) && !(my_ps2.buttons & PS2_BTN_SELECT))
+          last_ps2_read_time = HAL_GetTick(); // 更新时间戳
+          
+          PS2_Data_t my_ps2 = {0}; 
+          bool is_ps2_connected = BSP_PS2_ReadData(&my_ps2);
+
+          if (is_ps2_connected)
           {
-              if (Motor_Buffer_GetCount() == 0) {
-                  current_sys_mode = (current_sys_mode == SYS_MODE_GCODE) ? SYS_MODE_PS2 : SYS_MODE_GCODE;
-                  printf("\r\n>>> MODE SWITCHED TO: [%s] <<<\r\n", 
-                         (current_sys_mode == SYS_MODE_GCODE) ? "G-CODE" : "PS2 TELEOP");
-              } else {
-                  printf("Warning: Please wait for motors to stop before switching mode!\r\n");
+              // 1. 检测 SELECT 键的"单击"来切换系统模式
+              if ((last_buttons & PS2_BTN_SELECT) && !(my_ps2.buttons & PS2_BTN_SELECT))
+              {
+                  if (Motor_Buffer_GetCount() == 0) {
+                      current_sys_mode = (current_sys_mode == SYS_MODE_GCODE) ? SYS_MODE_PS2 : SYS_MODE_GCODE;
+                      printf("\r\n>>> MODE SWITCHED TO: [%s] <<<\r\n", 
+                             (current_sys_mode == SYS_MODE_GCODE) ? "G-CODE" : "PS2 TELEOP");
+                  } else {
+                      printf("Warning: Please wait for motors to stop before switching mode!\r\n");
+                  }
+              }
+              last_buttons = my_ps2.buttons;
+              
+              // 2. 如果当前是手柄遥控模式，提取摇杆数据喂给底层执行器
+              if (current_sys_mode == SYS_MODE_PS2)
+              {
+                  float dx = 0.0f, dy = 0.0f, dz = 0.0f;
+
+                  int joy_ly = 128 - my_ps2.LY; 
+                  int joy_lx = my_ps2.LX - 128; 
+                  int joy_ry = 128 - my_ps2.RY; 
+
+                  if (abs(joy_ly) > 15) dx = (joy_ly / 128.0f) * 1.5f; 
+                  if (abs(joy_lx) > 15) dy = (joy_lx / 128.0f) * 1.5f; 
+                  if (abs(joy_ry) > 15) dz = (joy_ry / 128.0f) * 1.5f; 
+
+                  if (dx != 0.0f || dy != 0.0f || dz != 0.0f) 
+                  {
+                      Motion_Planner_TeleopStep(dx, dy, dz);
+                  }
               }
           }
-          last_buttons = my_ps2.buttons;
-      }
+      } // -- PS2 读取区块结束 --
 
       // ========================================================
-      // 模块 2：状态机分流处理
+      // 模块 2：G代码持续监听 (无延迟全速轮询，防止漏掉串口字符)
       // ========================================================
       if (current_sys_mode == SYS_MODE_GCODE)
       {
-          // 修复 Bug 4：去除了外面多余的 BSP_UART1_ReadLine 拦截
           if (BSP_UART1_ReadLine(rx_line, sizeof(rx_line))) 
           {
               printf(">> Received raw line: [%s]\r\n", rx_line);
@@ -200,29 +223,6 @@ int main(void)
               }
           }
       }
-      else if (current_sys_mode == SYS_MODE_PS2)
-      {
-          // 必须确保手柄正常通讯，才能解析摇杆（防止断连后乱飞）
-          if (is_ps2_connected) 
-          {
-              float dx = 0.0f, dy = 0.0f, dz = 0.0f;
-
-              int joy_ly = 128 - my_ps2.LY; 
-              int joy_lx = my_ps2.LX - 128; 
-              int joy_ry = 128 - my_ps2.RY; 
-
-              if (abs(joy_ly) > 15) dx = (joy_ly / 128.0f) * 1.5f; 
-              if (abs(joy_lx) > 15) dy = (joy_lx / 128.0f) * 1.5f; 
-              if (abs(joy_ry) > 15) dz = (joy_ry / 128.0f) * 1.5f; 
-
-              if (dx != 0.0f || dy != 0.0f || dz != 0.0f) 
-              {
-                  Motion_Planner_TeleopStep(dx, dy, dz);
-              }
-          }
-          HAL_Delay(5); 
-      }
-
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
