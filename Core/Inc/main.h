@@ -71,6 +71,14 @@ void Error_Handler(void);
 #define M2_STEP_GPIO_Port GPIOA
 #define M3_STEP_Pin GPIO_PIN_0
 #define M3_STEP_GPIO_Port GPIOB
+#define PS2_DAT_Pin GPIO_PIN_12
+#define PS2_DAT_GPIO_Port GPIOE
+#define PS2_CMD_Pin GPIO_PIN_13
+#define PS2_CMD_GPIO_Port GPIOE
+#define PS2_CS_Pin GPIO_PIN_14
+#define PS2_CS_GPIO_Port GPIOE
+#define PS2_CLK_Pin GPIO_PIN_15
+#define PS2_CLK_GPIO_Port GPIOE
 #define EN_Pin GPIO_PIN_2
 #define EN_GPIO_Port GPIOD
 #define M1_DIR_Pin GPIO_PIN_3

@@ -59,6 +59,7 @@ target_sources(${CMAKE_PROJECT_NAME} PRIVATE
     Core/Src/bsp_uart1.c
     Core/Src/gcode_parser.c
     Core/Src/cmd_executor.c
+    Core/Src/bsp_ps2.c
 
 )
 
