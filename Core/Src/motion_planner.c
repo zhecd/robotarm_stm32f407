@@ -128,3 +128,51 @@ bool Motion_Planner_MoveLine(float target_x, float target_y, float target_z, uin
 
     return true;
 }
+
+// [新增] 遥控专用接口：无阻塞、无 S 曲线、低水位饥饿喂食
+// ==============================================================
+bool Motion_Planner_TeleopStep(float dx, float dy, float dz) 
+{
+    // ★ 核心魔法：队列低水位检测 ★
+    // 如果底层已经有 >= 2 个动作在排队了，直接丢弃新摇杆指令！
+    // 这保证了手柄遥控时的延迟永远小于 40ms，松手立刻刹车！
+    if (Motor_Buffer_GetCount() >= 2) {
+        return false; 
+    }
+
+    float target_x = current_x + dx;
+    float target_y = current_y + dy;
+    float target_z = current_z + dz;
+
+    RobotAngles target_angles;
+    RobotMotorUnits target_units;
+    MotionFrame_t frame;
+
+    // 逆运动学解算：计算这个微小目标点需要各个电机转到什么位置
+    RobotGeometry_CalculateAngles(target_x, target_y, target_z, &target_angles);
+    RobotGeometry_AnglesToMotorUnits(&target_angles, &target_units);
+
+    // 计算电机增量步数
+    frame.delta_m1 = target_units.rotUnits - planned_pos_m1;
+    frame.delta_m2 = target_units.lowUnits - planned_pos_m2;
+    frame.delta_m3 = target_units.highUnits - planned_pos_m3;
+    
+    // 遥控模式下赋予一个极短的固定执行时间 (20ms)
+    // TICKS_PER_MS 在此文件顶部定义为 50
+    frame.total_ticks = 20 * 50; 
+
+    // 非阻塞压入队列
+    if (Motor_Buffer_Push(&frame)) {
+        // 如果成功压入队列，更新内部的静态坐标记忆
+        planned_pos_m1 = target_units.rotUnits;
+        planned_pos_m2 = target_units.lowUnits;
+        planned_pos_m3 = target_units.highUnits;
+        
+        current_x = target_x;
+        current_y = target_y;
+        current_z = target_z;
+        return true;
+    }
+    
+    return false;
+}

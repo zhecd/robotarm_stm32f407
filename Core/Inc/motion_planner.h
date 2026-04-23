@@ -14,23 +14,19 @@ extern "C" {
 
 /**
  * @brief  初始化运动规划器
- * @note   由于目前没有正运动学(FK)和绝对编码器，必须在开机时告诉大脑
- * 机械臂当前所处的初始物理坐标。
- * @param  start_x 开机时机械臂末端的物理 X 坐标 (mm)
- * @param  start_y 开机时机械臂末端的物理 Y 坐标 (mm)
- * @param  start_z 开机时机械臂末端的物理 Z 坐标 (mm)
  */
 void Motion_Planner_Init(float start_x, float start_y, float start_z);
 
 /**
- * @brief  笛卡尔空间直线插补 (画绝对直线)
- * @param  target_x 目标 X 坐标 (mm)
- * @param  target_y 目标 Y 坐标 (mm)
- * @param  target_z 目标 Z 坐标 (mm)
- * @param  duration_ms 动作预期耗时 (ms)
- * @retval true: 指令全部成功压入底层队列; false: 队列满或无解
+ * @brief  笛卡尔空间直线插补 (画绝对直线，带S型加减速，长队列阻塞)
  */
 bool Motion_Planner_MoveLine(float target_x, float target_y, float target_z, uint32_t duration_ms);
+
+/**
+ * @brief  [新增] PS2手柄专用：非阻塞微步进 (无曲线，短平快)
+ * @param  dx, dy, dz: 当前想要移动的微小增量 (毫米)
+ */
+bool Motion_Planner_TeleopStep(float dx, float dy, float dz);
 
 #ifdef __cplusplus
 }

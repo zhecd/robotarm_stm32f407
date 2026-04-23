@@ -36,3 +36,5 @@ bool Motor_Buffer_Pop(MotionFrame_t *out_frame);
 #endif
 
 #endif /* __MOTOR_CORE_H__ */
+
+uint16_t Motor_Buffer_GetCount(void);

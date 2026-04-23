@@ -115,3 +115,15 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
         }
     }
 }
+
+uint16_t Motor_Buffer_GetCount(void)
+{
+    // 如果还没发生循环覆盖
+    if (s_motion_buffer.head >= s_motion_buffer.tail) {
+        return s_motion_buffer.head - s_motion_buffer.tail;
+    } 
+    // 如果写指针绕到了读指针的后面
+    else {
+        return RING_BUFFER_SIZE - s_motion_buffer.tail + s_motion_buffer.head;
+    }
+}

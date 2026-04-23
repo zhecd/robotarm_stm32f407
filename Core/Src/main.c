@@ -33,14 +33,19 @@
 #include "gcode_parser.h"
 #include "cmd_executor.h"
 #include "bsp_uart1.h"
-#include<stdio.h>
+#include <stdio.h>
 #include "bsp_ps2.h"
+#include <stdlib.h>
 
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
 /* USER CODE BEGIN PTD */
-
+  typedef enum {
+    SYS_MODE_GCODE,  // 写字机模式 (长线段，S型加减速)
+    SYS_MODE_PS2     // 手柄遥控模式 (微步进，无延迟响应)
+  } SystemMode_t;
+  SystemMode_t current_sys_mode = SYS_MODE_GCODE;
 /* USER CODE END PTD */
 
 /* Private define ------------------------------------------------------------*/
@@ -105,35 +110,43 @@ int main(void)
   /* USER CODE BEGIN 2 */
   BSP_LED_Init(); // 初始化LED
   BSP_Stepper_Init(); // 初始化步进电机驱动，设置默认状�??
-  BSP_UART1_Init(); // 初始�?? UART1 接收 G-code 指令
+  BSP_UART1_Init(); // 初始�??? UART1 接收 G-code 指令
   BSP_UART1_SendString("System Boot Up OK!\r\n");
-  BSP_PS2_Init(); // 初始化 PS2 手柄接口
-          
+  BSP_PS2_Init(); // 初始�? PS2 手柄接口
+
+   // 延时等待底层稳定
+  HAL_Delay(100);
+  printf("\r\n================================\r\n");
+  printf("System Boot Up OK! Gcode Mode\r\n");
+  printf("================================\r\n");
 
   BSP_Stepper_Enable(&Motor_M1, true);// 启用电机1
   BSP_Stepper_Enable(&Motor_M2, true);// 启用电机2
   BSP_Stepper_Enable(&Motor_M3, true);// 启用电机3
 
-  extern UART_HandleTypeDef huart6; // 确保声明了你的串口句�????
-  // �????0 (底座)：需要最大的力，16细分
+  extern UART_HandleTypeDef huart6; // 确保声明了你的串口句�?????
+  // �?????0 (底座)：需要最大的力，16细分
   BSP_TMC2209_ConfigNode(&huart6, 0,  16, 28, 15); 
 
-  // �????1 (大臂)：中等力�????16细分
+  // �?????1 (大臂)：中等力�?????16细分
   BSP_TMC2209_ConfigNode(&huart6, 1, 16, 28, 15); 
 
-  // �????2 (小臂)：负载极小，但为了极致顺滑，可以�???? 32 细分，小电流
+  // �?????2 (小臂)：负载极小，但为了极致顺滑，可以�????? 32 细分，小电流
   BSP_TMC2209_ConfigNode(&huart6, 2, 16, 28, 15);
 
   Motor_Core_Init(); //初始化环形缓冲区
-  Motion_Planner_Init(0.0f, 185.0f, 240.0f); // 设置初始位置�????(0, 185, 240)，即机械臂的默认位置
+  Motion_Planner_Init(0.0f, 185.0f, 240.0f); // 设置初始位置�?????(0, 185, 240)，即机械臂的默认位置
   Cmd_Executor_Init(0.0f, 185.0f, 240.0f);  // 初始化执行器
   
 
 
   extern TIM_HandleTypeDef htim6; 
-  HAL_TIM_Base_Start_IT(&htim6);// 启动定时�????6的中断，�????始处理运动帧
+  HAL_TIM_Base_Start_IT(&htim6);// 启动定时�?????6的中断，�?????始处理运动帧
 
-  char rx_line[64];
+  PS2_Data_t my_ps2;
+  uint16_t last_buttons = 0xFFFF; // 记录上次的按键状态，用于检测"单击"动作
+
+  char rx_line[256];
   GCodeFrame_t gcode_frame;
 
   /* USER CODE END 2 */
@@ -168,16 +181,71 @@ printf(">> Parsed OK: Type=%d, X=%d, Y=%d, Z=%d, F=%lu\r\n",
 
       PS2_Data_t my_ps2;
   
-  if (BSP_PS2_ReadData(&my_ps2)) {
-      // 每 100ms 打印一次摇杆的坐标
-      printf("PS2 OK! LX:%3d, LY:%3d, RX:%3d, RY:%3d | BTN: %04X\r\n", 
-              my_ps2.LX, my_ps2.LY, my_ps2.RX, my_ps2.RY, my_ps2.buttons);
-  } else {
-      printf("PS2 Error: Not Connected!\r\n");
-  }
-  
-  HAL_Delay(100); // 仅仅为了测试打印不要太快刷屏
+  // ========================================================
+      // 模块 1：手柄读取与模式安全切换
+      // ========================================================
+      if (BSP_PS2_ReadData(&my_ps2))
+      {
+          // 检测 SELECT 键的"单击" (按下瞬间触发，长按不重复触发)
+          if ((last_buttons & PS2_BTN_SELECT) && !(my_ps2.buttons & PS2_BTN_SELECT))
+          {
+              // ★ 安全锁：必须等底层队列完全耗尽（电机停稳），才允许切换模式！
+              if (Motor_Buffer_GetCount() == 0) {
+                  current_sys_mode = (current_sys_mode == SYS_MODE_GCODE) ? SYS_MODE_PS2 : SYS_MODE_GCODE;
+                  printf("\r\n>>> MODE SWITCHED TO: [%s] <<<\r\n", 
+                         (current_sys_mode == SYS_MODE_GCODE) ? "G-CODE" : "PS2 TELEOP");
+              } else {
+                  printf("Warning: Please wait for motors to stop before switching mode!\r\n");
+              }
+          }
+          last_buttons = my_ps2.buttons;
+      }
 
+      // ========================================================
+      // 模块 2：状态机分流处理
+      // ========================================================
+      if (current_sys_mode == SYS_MODE_GCODE)
+      {
+          // --- [ 写字机模式 ] ---
+          // 依靠底层的 50ms 超时断帧或 \n 识别，读取一行指令
+          if (BSP_UART1_ReadLine(rx_line, sizeof(rx_line))) 
+          {
+              printf(">> Received raw line: [%s]\r\n", rx_line);
+              // 如果解析成功，则交给执行器生成 S 曲线轨迹压入长队列
+              if (GCode_ParseLine(rx_line, &gcode_frame)) {
+                  Cmd_Executor_Run(&gcode_frame);
+                  printf("ok\r\n");
+              } else {
+                  printf("error: Parse failed!\r\n");
+              }
+          }
+      }
+      else if (current_sys_mode == SYS_MODE_PS2)
+      {
+          // --- [ 手柄遥控模式 ] ---
+          float dx = 0.0f, dy = 0.0f, dz = 0.0f;
+
+          // 1. 从 0~255 的模拟量映射为有符号整数 (-128 ~ +127)
+          // 注意：手柄摇杆向上推时值变小(0)，所以用 128 减去它来修正方向
+          int joy_ly = 128 - my_ps2.LY; 
+          int joy_lx = my_ps2.LX - 128; 
+          int joy_ry = 128 - my_ps2.RY; 
+
+          // 2. 摇杆死区消除 (防止摇杆老化不回中导致机械臂缓慢漂移)
+          // 每次最大步进量设为 1.5mm (你可以改大改小来调节遥控灵敏度)
+          if (abs(joy_ly) > 15) dx = (joy_ly / 128.0f) * 1.5f; // 左摇杆上下 -> 控制 X 轴
+          if (abs(joy_lx) > 15) dy = (joy_lx / 128.0f) * 1.5f; // 左摇杆左右 -> 控制 Y 轴
+          if (abs(joy_ry) > 15) dz = (joy_ry / 128.0f) * 1.5f; // 右摇杆上下 -> 控制 Z 轴
+
+          // 3. 如果摇杆被推动了，调用专用的无阻塞遥控喂食函数
+          if (dx != 0.0f || dy != 0.0f || dz != 0.0f) 
+          {
+              Motion_Planner_TeleopStep(dx, dy, dz);
+          }
+          
+          // 给软件 SPI 接收器留一点喘息时间，防止过度拉低片选死机
+          HAL_Delay(5); 
+      }
 
     /* USER CODE END WHILE */
 
