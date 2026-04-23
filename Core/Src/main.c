@@ -135,7 +135,8 @@ int main(void)
   Motor_Core_Init(); //初始化环形缓冲区
   Motion_Planner_Init(0.0f, 185.0f, 240.0f); // 设置初始位置�?????(0, 185, 240)，即机械臂的默认位置
   Cmd_Executor_Init(0.0f, 185.0f, 240.0f);  // 初始化执行器
-  
+
+  App_Teleop_Task();
 
 
   extern TIM_HandleTypeDef htim6; 
@@ -144,6 +145,8 @@ int main(void)
   char rx_line[256];
   GCodeFrame_t gcode_frame;
 
+  LedState_t my_pattern[LED_COUNT] = {LED_OFF, LED_OFF, LED_ON, LED_OFF};
+  BSP_LED_SetAllStates(my_pattern);
 
   /* USER CODE END 2 */
 
@@ -151,12 +154,6 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-  LedState_t my_pattern[LED_COUNT] = {LED_OFF, LED_OFF, LED_ON, LED_OFF};
-      BSP_LED_SetAllStates(my_pattern);
-
-      // 1. 运行遥控手柄任务 (内部自带 20ms 节流，不会阻塞死机)
-      App_Teleop_Task();
-
       // 2. 运行 G代码 接收任务
       // (未来这部分也可以封装成 App_Gcode_Task())
       if (current_sys_mode == SYS_MODE_GCODE)
