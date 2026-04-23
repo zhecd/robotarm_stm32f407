@@ -36,16 +36,13 @@
 #include <stdio.h>
 #include "bsp_ps2.h"
 #include <stdlib.h>
+#include "app_teleop.h"
 
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
 /* USER CODE BEGIN PTD */
-  typedef enum {
-    SYS_MODE_GCODE,  // 写字机模式 (长线段，S型加减速)
-    SYS_MODE_PS2     // 手柄遥控模式 (微步进，无延迟响应)
-  } SystemMode_t;
-  SystemMode_t current_sys_mode = SYS_MODE_GCODE;
+
 /* USER CODE END PTD */
 
 /* Private define ------------------------------------------------------------*/
@@ -144,13 +141,9 @@ int main(void)
   extern TIM_HandleTypeDef htim6; 
   HAL_TIM_Base_Start_IT(&htim6);// 启动定时�?????6的中断，�?????始处理运动帧
 
-  PS2_Data_t my_ps2;
-  uint16_t last_buttons = 0xFFFF; // 记录上次的按键状态，用于检测"单击"动作
-
   char rx_line[256];
   GCodeFrame_t gcode_frame;
 
-  uint32_t last_ps2_read_time = 0;
 
   /* USER CODE END 2 */
 
@@ -161,60 +154,15 @@ int main(void)
   LedState_t my_pattern[LED_COUNT] = {LED_OFF, LED_OFF, LED_ON, LED_OFF};
       BSP_LED_SetAllStates(my_pattern);
 
-      // ========================================================
-      // 模块 1：手柄读取与控制 (严格限制为 50Hz，即每 20ms 读取一次)
-      // ========================================================
-      if (HAL_GetTick() - last_ps2_read_time >= 20) 
-      {
-          last_ps2_read_time = HAL_GetTick(); // 更新时间戳
-          
-          PS2_Data_t my_ps2 = {0}; 
-          bool is_ps2_connected = BSP_PS2_ReadData(&my_ps2);
+      // 1. 运行遥控手柄任务 (内部自带 20ms 节流，不会阻塞死机)
+      App_Teleop_Task();
 
-          if (is_ps2_connected)
-          {
-              // 1. 检测 SELECT 键的"单击"来切换系统模式
-              if ((last_buttons & PS2_BTN_SELECT) && !(my_ps2.buttons & PS2_BTN_SELECT))
-              {
-                  if (Motor_Buffer_GetCount() == 0) {
-                      current_sys_mode = (current_sys_mode == SYS_MODE_GCODE) ? SYS_MODE_PS2 : SYS_MODE_GCODE;
-                      printf("\r\n>>> MODE SWITCHED TO: [%s] <<<\r\n", 
-                             (current_sys_mode == SYS_MODE_GCODE) ? "G-CODE" : "PS2 TELEOP");
-                  } else {
-                      printf("Warning: Please wait for motors to stop before switching mode!\r\n");
-                  }
-              }
-              last_buttons = my_ps2.buttons;
-              
-              // 2. 如果当前是手柄遥控模式，提取摇杆数据喂给底层执行器
-              if (current_sys_mode == SYS_MODE_PS2)
-              {
-                  float dx = 0.0f, dy = 0.0f, dz = 0.0f;
-
-                  int joy_ly = 128 - my_ps2.LY; 
-                  int joy_lx = my_ps2.LX - 128; 
-                  int joy_ry = 128 - my_ps2.RY; 
-
-                  if (abs(joy_ly) > 15) dx = (joy_ly / 128.0f) * 1.5f; 
-                  if (abs(joy_lx) > 15) dy = (joy_lx / 128.0f) * 1.5f; 
-                  if (abs(joy_ry) > 15) dz = (joy_ry / 128.0f) * 1.5f; 
-
-                  if (dx != 0.0f || dy != 0.0f || dz != 0.0f) 
-                  {
-                      Motion_Planner_TeleopStep(dx, dy, dz);
-                  }
-              }
-          }
-      } // -- PS2 读取区块结束 --
-
-      // ========================================================
-      // 模块 2：G代码持续监听 (无延迟全速轮询，防止漏掉串口字符)
-      // ========================================================
+      // 2. 运行 G代码 接收任务
+      // (未来这部分也可以封装成 App_Gcode_Task())
       if (current_sys_mode == SYS_MODE_GCODE)
       {
           if (BSP_UART1_ReadLine(rx_line, sizeof(rx_line))) 
           {
-              printf(">> Received raw line: [%s]\r\n", rx_line);
               if (GCode_ParseLine(rx_line, &gcode_frame)) {
                   Cmd_Executor_Run(&gcode_frame);
                   printf("ok\r\n");
@@ -223,6 +171,7 @@ int main(void)
               }
           }
       }
+  
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
