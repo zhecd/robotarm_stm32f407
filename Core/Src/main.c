@@ -136,7 +136,7 @@ int main(void)
   Motion_Planner_Init(0.0f, 185.0f, 240.0f); // 设置初始位置�?????(0, 185, 240)，即机械臂的默认位置
   Cmd_Executor_Init(0.0f, 185.0f, 240.0f);  // 初始化执行器
 
-  App_Teleop_Task();
+  App_Teleop_Init();
 
 
   extern TIM_HandleTypeDef htim6; 
@@ -154,6 +154,7 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
+      App_Teleop_Task();
       // 2. 运行 G代码 接收任务
       // (未来这部分也可以封装成 App_Gcode_Task())
       if (current_sys_mode == SYS_MODE_GCODE)
