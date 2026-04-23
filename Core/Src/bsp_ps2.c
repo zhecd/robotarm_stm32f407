@@ -2,7 +2,7 @@
 
 // 纳秒级微小延时，用于模拟 SPI 时序
 static void PS2_Delay(void) {
-    for (volatile uint32_t i = 0; i < 50; i++) {
+    for (volatile uint32_t i = 0; i < 300; i++) {
         __NOP();
     }
 }
