@@ -30,11 +30,12 @@ typedef struct {
 void Motor_Core_Init(void);
 bool Motor_Buffer_Push(const MotionFrame_t *frame);
 bool Motor_Buffer_Pop(MotionFrame_t *out_frame);
+void Motor_Buffer_Clear(void);
+bool Motor_Core_IsRunning(void);
+uint16_t Motor_Buffer_GetCount(void);
 
 #ifdef __cplusplus
 }
 #endif
 
 #endif /* __MOTOR_CORE_H__ */
-
-uint16_t Motor_Buffer_GetCount(void);

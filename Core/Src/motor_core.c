@@ -58,6 +58,18 @@ bool Motor_Buffer_Pop(MotionFrame_t *out_frame)
     return true;
 }
 
+void Motor_Buffer_Clear(void)
+{
+    __disable_irq();
+    s_motion_buffer.tail = s_motion_buffer.head;
+    __enable_irq();
+}
+
+bool Motor_Core_IsRunning(void)
+{
+    return is_running;
+}
+
 void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 {
     if (htim->Instance == TIM6) 
