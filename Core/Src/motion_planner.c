@@ -5,9 +5,12 @@
 #include <stdlib.h>
 #include <math.h>
 
-#define TICKS_PER_MS    50U
-#define LINEAR_STEP_MM  1.0f
-#define TELEOP_FRAME_MS 5U
+#define TICKS_PER_MS           50U
+#define LINEAR_SEGMENT_MM      0.25f
+#define PLANNER_SEGMENT_MS     4U
+#define MIN_FRAME_TICKS        1U
+#define FRAME_STEP_MARGIN      3U
+#define TELEOP_FRAME_MS        5U
 
 static float Quintic_Smoothstep(float u)
 {
@@ -26,6 +29,14 @@ static float current_x = 0.0f;
 static float current_y = 0.0f;
 static float current_z = 0.0f;
 
+static uint32_t MotionPlanner_MaxAbsDelta(const MotionFrame_t *frame)
+{
+    uint32_t max_delta = abs(frame->delta_m1);
+    if ((uint32_t)abs(frame->delta_m2) > max_delta) max_delta = abs(frame->delta_m2);
+    if ((uint32_t)abs(frame->delta_m3) > max_delta) max_delta = abs(frame->delta_m3);
+    return max_delta;
+}
+
 void Motion_Planner_Init(float start_x, float start_y, float start_z)
 {
     current_x = start_x;
@@ -38,39 +49,59 @@ void Motion_Planner_Init(float start_x, float start_y, float start_z)
 
 bool Motion_Planner_MoveLine(float target_x, float target_y, float target_z, uint32_t duration_ms)
 {
-    float dx = target_x - current_x;
-    float dy = target_y - current_y;
-    float dz = target_z - current_z;
-    float distance = sqrtf(dx * dx + dy * dy + dz * dz);
+    const float start_x = current_x;
+    const float start_y = current_y;
+    const float start_z = current_z;
 
-    if (distance < 0.1f) return true;
+    const float dx = target_x - start_x;
+    const float dy = target_y - start_y;
+    const float dz = target_z - start_z;
+    const float distance = sqrtf(dx * dx + dy * dy + dz * dz);
 
-    uint32_t segments = (uint32_t)(distance / LINEAR_STEP_MM);
-    if (segments == 0U) segments = 1U;
+    if (distance < 0.1f) {
+        current_x = target_x;
+        current_y = target_y;
+        current_z = target_z;
+        return true;
+    }
 
-    uint32_t base_ticks = (duration_ms * TICKS_PER_MS) / segments;
-    if (base_ticks == 0U) base_ticks = 1U;
+    uint32_t total_ticks = duration_ms * TICKS_PER_MS;
+    if (total_ticks < MIN_FRAME_TICKS) {
+        total_ticks = MIN_FRAME_TICKS;
+    }
 
-    const float ACCEL_ZONE = 0.2f;
-    const float DECEL_ZONE = 0.2f;
-    const float V_MIN_RATIO = 0.15f;
+    uint32_t segments_by_distance = (uint32_t)ceilf(distance / LINEAR_SEGMENT_MM);
+    if (segments_by_distance == 0U) {
+        segments_by_distance = 1U;
+    }
+
+    const uint32_t nominal_segment_ticks = PLANNER_SEGMENT_MS * TICKS_PER_MS;
+    uint32_t segments_by_time = (total_ticks + nominal_segment_ticks - 1U) / nominal_segment_ticks;
+    if (segments_by_time == 0U) {
+        segments_by_time = 1U;
+    }
+
+    uint32_t segments = (segments_by_distance > segments_by_time) ? segments_by_distance : segments_by_time;
+    if (segments == 0U) {
+        segments = 1U;
+    }
+
+    uint32_t prev_tick_target = 0U;
 
     for (uint32_t i = 1; i <= segments; i++) {
-        float progress = (float)i / (float)segments;
-        float step_x = current_x + dx * progress;
-        float step_y = current_y + dy * progress;
-        float step_z = current_z + dz * progress;
+        const float progress = (float)i / (float)segments;
+        const float smooth_progress = Quintic_Smoothstep(progress);
 
-        float v_mult = 1.0f;
-        if (progress < ACCEL_ZONE) {
-            float u = progress / ACCEL_ZONE;
-            v_mult = V_MIN_RATIO + (1.0f - V_MIN_RATIO) * Quintic_Smoothstep(u);
-        } else if (progress > (1.0f - DECEL_ZONE)) {
-            float u = (progress - (1.0f - DECEL_ZONE)) / DECEL_ZONE;
-            v_mult = 1.0f - (1.0f - V_MIN_RATIO) * Quintic_Smoothstep(u);
+        const float step_x = start_x + dx * smooth_progress;
+        const float step_y = start_y + dy * smooth_progress;
+        const float step_z = start_z + dz * smooth_progress;
+
+        const uint32_t cumulative_ticks = (uint32_t)(((uint64_t)total_ticks * i) / segments);
+        uint32_t frame_ticks = cumulative_ticks - prev_tick_target;
+        if (frame_ticks < MIN_FRAME_TICKS) {
+            frame_ticks = MIN_FRAME_TICKS;
         }
-
-        uint32_t current_ticks = (uint32_t)(base_ticks / v_mult);
+        prev_tick_target = cumulative_ticks;
 
         RobotAngles target_angles;
         RobotMotorUnits target_units;
@@ -82,13 +113,15 @@ bool Motion_Planner_MoveLine(float target_x, float target_y, float target_z, uin
         frame.delta_m1 = target_units.rotUnits - planned_pos_m1;
         frame.delta_m2 = target_units.lowUnits - planned_pos_m2;
         frame.delta_m3 = target_units.highUnits - planned_pos_m3;
-        frame.total_ticks = current_ticks;
+        frame.total_ticks = frame_ticks;
 
-        uint32_t max_delta = abs(frame.delta_m1);
-        if ((uint32_t)abs(frame.delta_m2) > max_delta) max_delta = abs(frame.delta_m2);
-        if ((uint32_t)abs(frame.delta_m3) > max_delta) max_delta = abs(frame.delta_m3);
-        if (max_delta > frame.total_ticks) {
-            frame.total_ticks = max_delta + 5U;
+        if ((frame.delta_m1 == 0) && (frame.delta_m2 == 0) && (frame.delta_m3 == 0)) {
+            continue;
+        }
+
+        uint32_t max_delta = MotionPlanner_MaxAbsDelta(&frame);
+        if (max_delta + FRAME_STEP_MARGIN > frame.total_ticks) {
+            frame.total_ticks = max_delta + FRAME_STEP_MARGIN;
         }
 
         while (!Motor_Buffer_Push(&frame)) {}
@@ -101,7 +134,6 @@ bool Motion_Planner_MoveLine(float target_x, float target_y, float target_z, uin
     current_x = target_x;
     current_y = target_y;
     current_z = target_z;
-
     return true;
 }
 
@@ -132,9 +164,7 @@ bool Motion_Planner_TeleopStep(float dx, float dy, float dz)
 
     frame.total_ticks = TELEOP_FRAME_MS * TICKS_PER_MS;
 
-    uint32_t max_delta = abs(frame.delta_m1);
-    if ((uint32_t)abs(frame.delta_m2) > max_delta) max_delta = abs(frame.delta_m2);
-    if ((uint32_t)abs(frame.delta_m3) > max_delta) max_delta = abs(frame.delta_m3);
+    uint32_t max_delta = MotionPlanner_MaxAbsDelta(&frame);
     if (max_delta > frame.total_ticks) {
         frame.total_ticks = max_delta;
     }
