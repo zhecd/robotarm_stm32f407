@@ -1,77 +1,90 @@
 #include "cmd_executor.h"
+#include "bsp_gripper.h"
 #include "motion_planner.h"
-#include "bsp_gripper.h" // 引入我们刚刚封装好的夹爪驱动
-#include <stdio.h>
 #include <math.h>
 
-// 维护机械臂的当前坐标（即上一次运动的终点）
-static float current_x = 0.0f;
-static float current_y = 0.0f;
-static float current_z = 0.0f;
+#define CMD_EXECUTOR_DEFAULT_FEEDRATE_MM_MIN 3000.0f
+#define CMD_EXECUTOR_MIN_MOVE_DISTANCE_MM    0.001f
+#define CMD_EXECUTOR_MIN_DURATION_MS         1U
 
-// 默认进给率 (Feedrate)，单位：mm/min (比如 F3000 代表每分钟移动 3000mm)
-static float current_feedrate = 3000.0f; 
+typedef struct
+{
+    float current_x;
+    float current_y;
+    float current_z;
+    float current_feedrate;
+} CmdExecutorState_t;
 
-/**
-  * @brief  初始化指令执行器，同步机械臂的初始坐标
-  */
-void Cmd_Executor_Init(float start_x, float start_y, float start_z) {
-    current_x = start_x;
-    current_y = start_y;
-    current_z = start_z;
+static CmdExecutorState_t s_cmd_executor = {
+    .current_x = 0.0f,
+    .current_y = 0.0f,
+    .current_z = 0.0f,
+    .current_feedrate = CMD_EXECUTOR_DEFAULT_FEEDRATE_MM_MIN
+};
+
+static uint32_t Cmd_Executor_ComputeDurationMs(float target_x, float target_y, float target_z)
+{
+    float dx = target_x - s_cmd_executor.current_x;
+    float dy = target_y - s_cmd_executor.current_y;
+    float dz = target_z - s_cmd_executor.current_z;
+    float distance = sqrtf((dx * dx) + (dy * dy) + (dz * dz));
+
+    if (distance <= CMD_EXECUTOR_MIN_MOVE_DISTANCE_MM) {
+        return 0U;
+    }
+
+    uint32_t duration_ms = (uint32_t)((distance * 60000.0f) / s_cmd_executor.current_feedrate);
+    return (duration_ms == 0U) ? CMD_EXECUTOR_MIN_DURATION_MS : duration_ms;
 }
 
-/**
-  * @brief  运行解析好的 G 代码帧
-  */
-void Cmd_Executor_Run(const GCodeFrame_t* frame) {
-    if (frame == NULL) return;
+static void Cmd_Executor_RunLinearMove(const GCodeFrame_t *frame)
+{
+    float target_x = frame->has_x ? frame->x : s_cmd_executor.current_x;
+    float target_y = frame->has_y ? frame->y : s_cmd_executor.current_y;
+    float target_z = frame->has_z ? frame->z : s_cmd_executor.current_z;
 
-    // ==========================================
-    // 1. 处理空间直线运动 (G0 快速移动 / G1 线性插补)
-    // ==========================================
-    if (frame->type == GCMD_G0 || frame->type == GCMD_G1) {
-        
-        // 解析新的目标坐标：如果有新坐标就使用新坐标，没有就保持在原地
-        float target_x = frame->has_x ? frame->x : current_x;
-        float target_y = frame->has_y ? frame->y : current_y;
-        float target_z = frame->has_z ? frame->z : current_z;
-        
-        // 更新运动速度 (F值)，单位 mm/min
-        if (frame->has_f && frame->f > 0) {
-            current_feedrate = (float)frame->f;
-        }
-
-        // 计算起点到终点的三维空间直线距离 (毫米)
-        float dx = target_x - current_x;
-        float dy = target_y - current_y;
-        float dz = target_z - current_z;
-        float distance = sqrtf(dx * dx + dy * dy + dz * dz);
-
-        // 根据距离和速度，计算出真正的运动耗时 (毫秒)
-        uint32_t duration_ms = 0;
-        if (distance > 0.001f) { 
-            duration_ms = (uint32_t)((distance * 60000.0f) / current_feedrate);
-            if (duration_ms == 0) duration_ms = 1; // 安全限制，防止除零
-        }
-
-        // 将计算好的安全坐标和真实耗时，塞入底层轨迹规划器
-        Motion_Planner_MoveLine(target_x, target_y, target_z, duration_ms);
-
-        // 更新当前坐标记录，为下一条线段做准备
-        current_x = target_x;
-        current_y = target_y;
-        current_z = target_z;
+    if (frame->has_f && (frame->f > 0U)) {
+        s_cmd_executor.current_feedrate = (float)frame->f;
     }
-    // ==========================================
-    // 2. 处理外设控制 (M代码 - 舵机夹爪)
-    // ==========================================
-    else if (frame->type == GCMD_M3) {
-        // M3：张开夹爪
+
+    uint32_t duration_ms = Cmd_Executor_ComputeDurationMs(target_x, target_y, target_z);
+    Motion_Planner_MoveLine(target_x, target_y, target_z, duration_ms);
+
+    s_cmd_executor.current_x = target_x;
+    s_cmd_executor.current_y = target_y;
+    s_cmd_executor.current_z = target_z;
+}
+
+void Cmd_Executor_Init(float start_x, float start_y, float start_z)
+{
+    s_cmd_executor.current_x = start_x;
+    s_cmd_executor.current_y = start_y;
+    s_cmd_executor.current_z = start_z;
+    s_cmd_executor.current_feedrate = CMD_EXECUTOR_DEFAULT_FEEDRATE_MM_MIN;
+}
+
+void Cmd_Executor_Run(const GCodeFrame_t *frame)
+{
+    if (frame == NULL) {
+        return;
+    }
+
+    switch (frame->type) {
+    case GCMD_G0:
+    case GCMD_G1:
+        Cmd_Executor_RunLinearMove(frame);
+        break;
+
+    case GCMD_M3:
         BSP_Gripper_Open(&hgripper);
-    }
-    else if (frame->type == GCMD_M5) {
-        // M5：闭合夹爪
+        break;
+
+    case GCMD_M5:
         BSP_Gripper_Close(&hgripper);
+        break;
+
+    case GCMD_UNKNOWN:
+    default:
+        break;
     }
 }

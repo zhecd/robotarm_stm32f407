@@ -1,23 +1,25 @@
-#ifndef __BSP_STEPPER_H__
-#define __BSP_STEPPER_H__
+#ifndef BSP_STEPPER_H
+#define BSP_STEPPER_H
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
 #include "main.h"
-#include <stdint.h>
 #include <stdbool.h>
+#include <stdint.h>
 
-typedef enum {
+typedef enum
+{
     STEPPER_DIR_CW = 0,
     STEPPER_DIR_CCW = 1
 } StepperDir_t;
 
-typedef struct {
-    GPIO_TypeDef* step_port;
+typedef struct
+{
+    GPIO_TypeDef *step_port;
     uint16_t step_pin;
-    GPIO_TypeDef* dir_port;
+    GPIO_TypeDef *dir_port;
     uint16_t dir_pin;
     StepperDir_t current_dir;
     volatile int32_t absolute_position;
@@ -36,4 +38,4 @@ extern Stepper_Dev_t Motor_M3;
 }
 #endif
 
-#endif
+#endif /* BSP_STEPPER_H */
