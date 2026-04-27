@@ -6,10 +6,13 @@
 #include <math.h>
 
 #define TICKS_PER_MS           50U
-#define LINEAR_SEGMENT_MM      0.25f
-#define PLANNER_SEGMENT_MS     4U
+#define LINEAR_SEGMENT_MM      0.20f
+#define PLANNER_SEGMENT_MS     3U
 #define MIN_FRAME_TICKS        1U
 #define FRAME_STEP_MARGIN      3U
+#define STOP_TAIL_EXTRA_TICKS  6U
+#define END_SLOW_SEGMENTS      4U
+#define MOTOR_STEPS_PER_SEG    6U
 #define TELEOP_FRAME_MS        5U
 
 static float Quintic_Smoothstep(float u)
@@ -75,6 +78,24 @@ bool Motion_Planner_MoveLine(float target_x, float target_y, float target_z, uin
         segments_by_distance = 1U;
     }
 
+    RobotAngles final_angles;
+    RobotMotorUnits final_units;
+    RobotGeometry_CalculateAngles(target_x, target_y, target_z, &final_angles);
+    RobotGeometry_AnglesToMotorUnits(&final_angles, &final_units);
+
+    MotionFrame_t total_move = {
+        .delta_m1 = final_units.rotUnits - planned_pos_m1,
+        .delta_m2 = final_units.lowUnits - planned_pos_m2,
+        .delta_m3 = final_units.highUnits - planned_pos_m3,
+        .total_ticks = 0U
+    };
+
+    uint32_t max_total_delta = MotionPlanner_MaxAbsDelta(&total_move);
+    uint32_t segments_by_motor = (max_total_delta + MOTOR_STEPS_PER_SEG - 1U) / MOTOR_STEPS_PER_SEG;
+    if (segments_by_motor == 0U) {
+        segments_by_motor = 1U;
+    }
+
     const uint32_t nominal_segment_ticks = PLANNER_SEGMENT_MS * TICKS_PER_MS;
     uint32_t segments_by_time = (total_ticks + nominal_segment_ticks - 1U) / nominal_segment_ticks;
     if (segments_by_time == 0U) {
@@ -82,6 +103,9 @@ bool Motion_Planner_MoveLine(float target_x, float target_y, float target_z, uin
     }
 
     uint32_t segments = (segments_by_distance > segments_by_time) ? segments_by_distance : segments_by_time;
+    if (segments_by_motor > segments) {
+        segments = segments_by_motor;
+    }
     if (segments == 0U) {
         segments = 1U;
     }
@@ -122,6 +146,10 @@ bool Motion_Planner_MoveLine(float target_x, float target_y, float target_z, uin
         uint32_t max_delta = MotionPlanner_MaxAbsDelta(&frame);
         if (max_delta + FRAME_STEP_MARGIN > frame.total_ticks) {
             frame.total_ticks = max_delta + FRAME_STEP_MARGIN;
+        }
+        uint32_t remaining_segments = segments - i;
+        if (remaining_segments < END_SLOW_SEGMENTS) {
+            frame.total_ticks += (END_SLOW_SEGMENTS - remaining_segments) * STOP_TAIL_EXTRA_TICKS;
         }
 
         while (!Motor_Buffer_Push(&frame)) {}
