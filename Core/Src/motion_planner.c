@@ -6,13 +6,13 @@
 #include <math.h>
 
 #define TICKS_PER_MS           50U
-#define LINEAR_SEGMENT_MM      0.20f
-#define PLANNER_SEGMENT_MS     3U
+#define LINEAR_SEGMENT_MM      0.25f
+#define PLANNER_SEGMENT_MS     4U
 #define MIN_FRAME_TICKS        1U
 #define FRAME_STEP_MARGIN      3U
-#define STOP_TAIL_EXTRA_TICKS  6U
-#define END_SLOW_SEGMENTS      4U
-#define MOTOR_STEPS_PER_SEG    6U
+#define STOP_TAIL_EXTRA_TICKS  2U
+#define END_SLOW_SEGMENTS      2U
+#define MOTOR_STEPS_PER_SEG    10U
 #define TELEOP_FRAME_MS        5U
 
 static float Quintic_Smoothstep(float u)
