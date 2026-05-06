@@ -34,6 +34,11 @@ void Motor_Buffer_Clear(void);
 bool Motor_Core_IsRunning(void);
 uint16_t Motor_Buffer_GetCount(void);
 
+// 理论步数追踪
+void Motor_Core_GetTheorySteps(int32_t *m1, int32_t *m2, int32_t *m3);
+void Motor_Core_ResetTheorySteps(void);
+void Motor_Core_AdjustTheorySteps(int32_t dm1, int32_t dm2, int32_t dm3);
+
 #ifdef __cplusplus
 }
 #endif

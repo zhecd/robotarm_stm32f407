@@ -2,6 +2,7 @@
 #include "robotGeometry.h"
 #include "motor_core.h"
 #include "bsp_stepper.h"
+#include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
 
@@ -62,11 +63,17 @@ bool Motion_Planner_MoveLine(float target_x, float target_y, float target_z, uin
     const float distance = sqrtf(dx * dx + dy * dy + dz * dz);
 
     if (distance < 0.1f) {
+        printf("[Planner] tgt(%.1f,%.1f,%.1f) dist=%.2fmm → 已在目标, 跳过\r\n",
+               (double)target_x, (double)target_y, (double)target_z, (double)distance);
         current_x = target_x;
         current_y = target_y;
         current_z = target_z;
         return true;
     }
+
+    printf("[Planner] tgt(%.1f,%.1f,%.1f) dist=%.1fmm dur=%lums → 生成运动\r\n",
+           (double)target_x, (double)target_y, (double)target_z,
+           (double)distance, (unsigned long)duration_ms);
 
     uint32_t total_ticks = duration_ms * TICKS_PER_MS;
     if (total_ticks < MIN_FRAME_TICKS) {
@@ -154,6 +161,8 @@ bool Motion_Planner_MoveLine(float target_x, float target_y, float target_z, uin
 
         while (!Motor_Buffer_Push(&frame)) {}
 
+        Motor_Core_AdjustTheorySteps(frame.delta_m1, frame.delta_m2, frame.delta_m3);
+
         planned_pos_m1 = target_units.rotUnits;
         planned_pos_m2 = target_units.lowUnits;
         planned_pos_m3 = target_units.highUnits;
@@ -200,6 +209,8 @@ bool Motion_Planner_TeleopStep(float dx, float dy, float dz)
     if (!Motor_Buffer_Push(&frame)) {
         return false;
     }
+
+    Motor_Core_AdjustTheorySteps(frame.delta_m1, frame.delta_m2, frame.delta_m3);
 
     planned_pos_m1 = target_units.rotUnits;
     planned_pos_m2 = target_units.lowUnits;

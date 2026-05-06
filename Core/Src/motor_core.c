@@ -1,4 +1,5 @@
 #include "motor_core.h"
+#include <stdio.h>
 #include <stdlib.h>
 
 static MotionBuffer_t s_motion_buffer;
@@ -15,13 +16,21 @@ static uint32_t abs_steps_m1 = 0;
 static uint32_t abs_steps_m2 = 0;
 static uint32_t abs_steps_m3 = 0;
 
+int32_t g_theory_steps_m1 = 0;
+int32_t g_theory_steps_m2 = 0;
+int32_t g_theory_steps_m3 = 0;
+
 void Motor_Core_Init(void)
 {
     s_motion_buffer.head = 0;
     s_motion_buffer.tail = 0;
-    
+
     is_running = false;
     current_tick = 0;
+
+    g_theory_steps_m1 = 0;
+    g_theory_steps_m2 = 0;
+    g_theory_steps_m3 = 0;
 }
 
 bool Motor_Buffer_Push(const MotionFrame_t *frame)
@@ -76,11 +85,11 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
     {
         if (!is_running) 
         {
-            if (Motor_Buffer_Pop(&current_frame)) 
+            if (Motor_Buffer_Pop(&current_frame))
             {
                 is_running = true;
                 current_tick = 0;
-                
+
                 BSP_Stepper_SetDir(&Motor_M1, (current_frame.delta_m1 >= 0) ? STEPPER_DIR_CW : STEPPER_DIR_CCW);
                 BSP_Stepper_SetDir(&Motor_M2, (current_frame.delta_m2 >= 0) ? STEPPER_DIR_CW : STEPPER_DIR_CCW);
                 BSP_Stepper_SetDir(&Motor_M3, (current_frame.delta_m3 >= 0) ? STEPPER_DIR_CW : STEPPER_DIR_CCW);
@@ -130,12 +139,40 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 
 uint16_t Motor_Buffer_GetCount(void)
 {
-    // 如果还没发生循环覆盖
     if (s_motion_buffer.head >= s_motion_buffer.tail) {
         return s_motion_buffer.head - s_motion_buffer.tail;
-    } 
-    // 如果写指针绕到了读指针的后面
-    else {
+    } else {
         return RING_BUFFER_SIZE - s_motion_buffer.tail + s_motion_buffer.head;
+    }
+}
+
+void Motor_Core_GetTheorySteps(int32_t *m1, int32_t *m2, int32_t *m3)
+{
+    if (m1) *m1 = g_theory_steps_m1;
+    if (m2) *m2 = g_theory_steps_m2;
+    if (m3) *m3 = g_theory_steps_m3;
+}
+
+void Motor_Core_ResetTheorySteps(void)
+{
+    __disable_irq();
+    g_theory_steps_m1 = 0;
+    g_theory_steps_m2 = 0;
+    g_theory_steps_m3 = 0;
+    __enable_irq();
+}
+
+void Motor_Core_AdjustTheorySteps(int32_t dm1, int32_t dm2, int32_t dm3)
+{
+    __disable_irq();
+    g_theory_steps_m1 += dm1;
+    g_theory_steps_m2 += dm2;
+    g_theory_steps_m3 += dm3;
+    __enable_irq();
+    /* 诊断：只打印非零累加 */
+    if (dm1 != 0 || dm2 != 0 || dm3 != 0) {
+        printf("[ThAdj] +(%ld,%ld,%ld) → now(%ld,%ld,%ld)\r\n",
+               (long)dm1, (long)dm2, (long)dm3,
+               (long)g_theory_steps_m1, (long)g_theory_steps_m2, (long)g_theory_steps_m3);
     }
 }
