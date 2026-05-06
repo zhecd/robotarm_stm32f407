@@ -18,6 +18,7 @@
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
+#include "i2c.h"
 #include "tim.h"
 #include "usart.h"
 #include "gpio.h"
@@ -38,6 +39,7 @@
 #include <stdlib.h>
 #include "app_teleop.h"
 #include "bsp_gripper.h"
+#include "bsp_as5600.h"
 
 /* USER CODE END Includes */
 
@@ -106,14 +108,18 @@ int main(void)
   MX_USART6_UART_Init();
   MX_USART1_UART_Init();
   MX_TIM2_Init();
+  MX_I2C1_Init();
+  MX_I2C2_Init();
+  MX_I2C3_Init();
   /* USER CODE BEGIN 2 */
   BSP_LED_Init(); // 初始化LED
   BSP_Stepper_Init(); // 初始化步进电机驱动，设置默认状�??
-  BSP_UART1_Init(); // 初始�???? UART1 接收 G-code 指令
+  BSP_UART1_Init(); // 初始�????? UART1 接收 G-code 指令
   BSP_UART1_SendString("System Boot Up OK!\r\n");
-  BSP_PS2_Init(); // 初始�?? PS2 手柄接口
-  extern TIM_HandleTypeDef htim2; 
+  BSP_PS2_Init(); // 初始�??? PS2 手柄接口
+  extern TIM_HandleTypeDef htim2;
   BSP_Gripper_Init(&hgripper, &htim2, TIM_CHANNEL_2); // 绑定 PA1 (TIM2_CH2)
+  BSP_AS5600_Init(); // 初始化三个AS5600编码器，记录上电零点
 
    // 延时等待底层稳定
   HAL_Delay(100);
@@ -125,25 +131,25 @@ int main(void)
   BSP_Stepper_Enable(&Motor_M2, true);// 启用电机2
   BSP_Stepper_Enable(&Motor_M3, true);// 启用电机3
 
-  extern UART_HandleTypeDef huart6; // 确保声明了你的串口句�??????
-  // �??????0 (底座)：需要最大的力，16细分
+  extern UART_HandleTypeDef huart6; // 确保声明了你的串口句�???????
+  // �???????0 (底座)：需要最大的力，16细分
   BSP_TMC2209_ConfigNode(&huart6, 0,  16, 28, 15); 
 
-  // �??????1 (大臂)：中等力�??????16细分
+  // �???????1 (大臂)：中等力�???????16细分
   BSP_TMC2209_ConfigNode(&huart6, 1, 16, 28, 15); 
 
-  // �??????2 (小臂)：负载极小，但为了极致顺滑，可以�?????? 32 细分，小电流
+  // �???????2 (小臂)：负载极小，但为了极致顺滑，可以�??????? 32 细分，小电流
   BSP_TMC2209_ConfigNode(&huart6, 2, 16, 28, 15);
 
   Motor_Core_Init(); //初始化环形缓冲区
-  Motion_Planner_Init(0.0f, 185.0f, 240.0f); // 设置初始位置�??????(0, 185, 240)，即机械臂的默认位置
+  Motion_Planner_Init(0.0f, 185.0f, 240.0f); // 设置初始位置�???????(0, 185, 240)，即机械臂的默认位置
   Cmd_Executor_Init(0.0f, 185.0f, 240.0f);  // 初始化执行器
 
   App_Teleop_Init();
 
 
   extern TIM_HandleTypeDef htim6; 
-  HAL_TIM_Base_Start_IT(&htim6);// 启动定时�??????6的中断，�??????始处理运动帧
+  HAL_TIM_Base_Start_IT(&htim6);// 启动定时�???????6的中断，�???????始处理运动帧
 
   char rx_line[256];
   GCodeFrame_t gcode_frame;
@@ -157,9 +163,22 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
+      /* 1Hz 编码器数据上报 */
+      {
+          static uint32_t last_tick = 0;
+          uint32_t now = HAL_GetTick();
+          if (now - last_tick >= 1000) {
+              last_tick = now;
+              uint16_t a1 = BSP_AS5600_GetAngle(ENCODER_M1);
+              uint16_t a2 = BSP_AS5600_GetAngle(ENCODER_M2);
+              uint16_t a3 = BSP_AS5600_GetAngle(ENCODER_M3);
+              printf("ENC M1:%u M2:%u M3:%u\r\n", a1, a2, a3);
+          }
+      }
+
       App_Teleop_Task();
       // 2. 运行 G代码 接收任务
-      // (未来这部分也可以封装�? App_Gcode_Task())
+      // (未来这部分也可以封装�?? App_Gcode_Task())
       if (current_sys_mode == SYS_MODE_GCODE)
       {
           if (BSP_UART1_ReadLine(rx_line, sizeof(rx_line))) 

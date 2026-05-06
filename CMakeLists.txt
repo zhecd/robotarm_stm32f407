@@ -62,6 +62,7 @@ target_sources(${CMAKE_PROJECT_NAME} PRIVATE
     Core/Src/bsp_ps2.c
     Core/Src/app_teleop.c
     Core/Src/bsp_gripper.c
+    Core/Src/bsp_as5600.c
 
 )
 
