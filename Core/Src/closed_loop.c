@@ -11,7 +11,7 @@
 #define CL_KD            0.15f   /* 微分增益 */
 #define CL_INTEGRAL_MAX  5.0f    /* 积分限幅 (度) */
 #define CL_OUTPUT_MAX    3.0f    /* 单周期最大输出 (度) ≈27 步 */
-#define CL_DEADBAND_DEG  1.5f    /* 死区 (度) ≈13 步, 容忍机械回差 */
+#define CL_DEADBAND_DEG  3.0f    /* 死区 (度) ≈27 步, 容忍机械回差 */
 #define CL_UPDATE_MS     20U     /* PID 更新周期 (ms) = 50Hz */
 #define CL_COOLDOWN_MS   500U    /* 校正冷却时间, 防止连续抖动 */
 
