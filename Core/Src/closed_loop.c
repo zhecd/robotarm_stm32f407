@@ -9,13 +9,13 @@
 #define CL_KI            0.05f
 #define CL_KD            0.15f
 #define CL_INTEGRAL_MAX  5.0f
-#define CL_OUTPUT_MAX    3.0f
+#define CL_OUTPUT_MAX    1.5f
 #define CL_DEADBAND_DEG  3.0f
 #define CL_UPDATE_MS     20U
 #define CL_COOLDOWN_MS   500U
 #define CL_I_SEP_ERR     3.0f     /* 积分分离阈值 (度) */
 
-#define CL_SPEED_DIV     50U
+#define CL_SPEED_DIV     200U
 #define CL_MIN_TICKS     100U
 
 typedef struct {

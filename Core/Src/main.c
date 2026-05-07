@@ -201,6 +201,7 @@ int main(void)
               if (GCode_ParseLine(rx_line, &gcode_frame)) {
                   Cmd_Executor_Run(&gcode_frame);
                   App_Static_Compensation();
+                  HAL_Delay(100);  /* 等机械臂物理稳定后再让 PID 接管 */
                   CL_SyncTarget();
                   printf("ok\r\n");
               } else {
