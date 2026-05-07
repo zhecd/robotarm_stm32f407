@@ -180,14 +180,16 @@ int main(void)
               BSP_AS5600_Update(&Encoder_M1);
               BSP_AS5600_Update(&Encoder_M2);
               BSP_AS5600_Update(&Encoder_M3);
-              /* 用整数避免 newlib-nano 不支持 %%f */
-              printf("ENC M1:%u.%u M2:%u.%u M3:%u.%u\r\n",
-                     (unsigned)(Encoder_M1.angle_deg * 10.0f) / 10,
-                     (unsigned)(Encoder_M1.angle_deg * 10.0f) % 10,
-                     (unsigned)(Encoder_M2.angle_deg * 10.0f) / 10,
-                     (unsigned)(Encoder_M2.angle_deg * 10.0f) % 10,
-                     (unsigned)(Encoder_M3.angle_deg * 10.0f) / 10,
-                     (unsigned)(Encoder_M3.angle_deg * 10.0f) % 10);
+              /* 用整数避免 newlib-nano 不支持 %%f; 手动处理符号 */
+              {
+                  int d1 = (int)(Encoder_M1.angle_deg * 10.0f);
+                  int d2 = (int)(Encoder_M2.angle_deg * 10.0f);
+                  int d3 = (int)(Encoder_M3.angle_deg * 10.0f);
+                  printf("ENC M1:%s%d.%d M2:%s%d.%d M3:%s%d.%d\r\n",
+                         d1 < 0 ? "-" : "", abs(d1) / 10, abs(d1) % 10,
+                         d2 < 0 ? "-" : "", abs(d2) / 10, abs(d2) % 10,
+                         d3 < 0 ? "-" : "", abs(d3) / 10, abs(d3) % 10);
+              }
           }
       }
 

@@ -55,9 +55,10 @@ void BSP_AS5600_Update(AS5600_t *enc)
     float physical_deg = AS5600_ReadPhysicalDegAvg(enc);
     if (physical_deg < 0.0f) return;
 
+    /* 归一化到 (-180, 180], 避免 0/360 边界跳变 */
     float adjusted = physical_deg - enc->zero_offset;
-    while (adjusted < 0.0f)   adjusted += 360.0f;
-    while (adjusted >= 360.0f) adjusted -= 360.0f;
+    while (adjusted >  180.0f) adjusted -= 360.0f;
+    while (adjusted <= -180.0f) adjusted += 360.0f;
 
     enc->angle_deg = adjusted;
 }
