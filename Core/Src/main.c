@@ -119,9 +119,9 @@ int main(void)
   /* USER CODE BEGIN 2 */
   BSP_LED_Init(); // 初始化LED
   BSP_Stepper_Init(); // 初始化步进电机驱动，设置默认状�??
-  BSP_UART1_Init(); // 初始�????? UART1 接收 G-code 指令
+  BSP_UART1_Init(); // 初始�?????? UART1 接收 G-code 指令
   BSP_UART1_SendString("System Boot Up OK!\r\n");
-  BSP_PS2_Init(); // 初始�?? PS2 手柄接口
+  BSP_PS2_Init(); // 初始�??? PS2 手柄接口
   extern TIM_HandleTypeDef htim2; 
   BSP_Gripper_Init(&hgripper, &htim2, TIM_CHANNEL_2); // 绑定 PA1 (TIM2_CH2)
   BSP_AS5600_Init(); // 初始化三个AS5600编码器，记录上电零点
@@ -136,28 +136,28 @@ int main(void)
   BSP_Stepper_Enable(&Motor_M2, true);// 启用电机2
   BSP_Stepper_Enable(&Motor_M3, true);// 启用电机3
 
-  extern UART_HandleTypeDef huart6; // 确保声明了你的串口句�???????
-  // �???????0 (底座)：需要最大的力，16细分
+  extern UART_HandleTypeDef huart6; // 确保声明了你的串口句�????????
+  // �????????0 (底座)：需要最大的力，16细分
   BSP_TMC2209_ConfigNode(&huart6, 0,  16, 28, 15); 
 
-  // �???????1 (大臂)：中等力�???????16细分
+  // �????????1 (大臂)：中等力�????????16细分
   BSP_TMC2209_ConfigNode(&huart6, 1, 16, 28, 15); 
 
-  // �???????2 (小臂)：负载极小，但为了极致顺滑，可以�??????? 32 细分，小电流
+  // �????????2 (小臂)：负载极小，但为了极致顺滑，可以�???????? 32 细分，小电流
   BSP_TMC2209_ConfigNode(&huart6, 2, 16, 28, 15);
 
   Motor_Core_Init(); //初始化环形缓冲区
-  Motion_Planner_Init(0.0f, 185.0f, 240.0f); // 设置初始位置�???????(0, 185, 240)，即机械臂的默认位置
+  Motion_Planner_Init(0.0f, 185.0f, 240.0f); // 设置初始位置�????????(0, 185, 240)，即机械臂的默认位置
   Cmd_Executor_Init(0.0f, 185.0f, 240.0f);  // 初始化执行器
 
   App_Teleop_Init();
 
-  App_Align_Coordinates(); // 传感器坐标系与理论步数坐标对齐
-  CL_Init();               // 初始化三轴 PID 闭环控制器
+  App_Align_Coordinates(); // 传感器坐标系与理论步数坐标对�?
+  CL_Init();               // 初始化三�? PID 闭环控制�?
 
 
   extern TIM_HandleTypeDef htim6; 
-  HAL_TIM_Base_Start_IT(&htim6);// 启动定时�??????6的中断，�??????始处理运动帧
+  HAL_TIM_Base_Start_IT(&htim6);// 启动定时�???????6的中断，�???????始处理运动帧
 
   char rx_line[256];
   GCodeFrame_t gcode_frame;
@@ -171,7 +171,7 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-      /* 1Hz 编码器数据上报 */
+      /* 1Hz 编码器数据上�? */
       {
           static uint32_t last_tick = 0;
           uint32_t now = HAL_GetTick();
@@ -180,7 +180,7 @@ int main(void)
               BSP_AS5600_Update(&Encoder_M1);
               BSP_AS5600_Update(&Encoder_M2);
               BSP_AS5600_Update(&Encoder_M3);
-              /* 用整数避免 newlib-nano 不支持 %%f; 手动处理符号 */
+              /* 用整数避�? newlib-nano 不支�? %%f; 手动处理符号 */
               {
                   int d1 = (int)(Encoder_M1.angle_deg * 10.0f);
                   int d2 = (int)(Encoder_M2.angle_deg * 10.0f);
@@ -205,7 +205,7 @@ int main(void)
 
       App_Teleop_Task();
       // 2. 运行 G代码 接收任务
-      // (未来这部分也可以封装�?? App_Gcode_Task())
+      // (未来这部分也可以封装�??? App_Gcode_Task())
       if (current_sys_mode == SYS_MODE_GCODE)
       {
           if (BSP_UART1_ReadLine(rx_line, sizeof(rx_line))) 
@@ -283,39 +283,44 @@ void App_Align_Coordinates(void)
 {
     Motor_Core_ResetTheorySteps();
 
-    BSP_AS5600_SetZero(&Encoder_M1);
-    BSP_AS5600_SetZero(&Encoder_M2);
-    BSP_AS5600_SetZero(&Encoder_M3);
+    bool ok1 = BSP_AS5600_SetZero(&Encoder_M1);
+    bool ok2 = BSP_AS5600_SetZero(&Encoder_M2);
+    bool ok3 = BSP_AS5600_SetZero(&Encoder_M3);
+
+    printf("[Encoder] M1(I2C1):%s M2(I2C2):%s M3(I2C3):%s\r\n",
+           ok1 ? "OK" : "FAIL",
+           ok2 ? "OK" : "FAIL",
+           ok3 ? "OK" : "FAIL");
 }
 
 /*
- * 静态位置误差补偿：持续迭代直到编码器收敛到理论目标位置。
+ * 静�?�位置误差补偿：持续迭代直到编码器收敛到理论目标位置�?
  *
- * 架构保证（关键）：
- *   g_theory_steps 只由 MotionPlanner Push 帧时累加，补偿帧直接 Push 不经过 Planner，
- *   因此 theory 天然只代表"规划层命令值"，不会被补偿运动污染。
- *   补偿循环中取一次 theory 快照作为固定目标，只追踪编码器是否到达该目标。
+ * 架构保证（关键）�?
+ *   g_theory_steps 只由 MotionPlanner Push 帧时累加，补偿帧直接 Push 不经�? Planner�?
+ *   因此 theory 天然只代�?"规划层命令�??"，不会被补偿运动污染�?
+ *   补偿循环中取�?�? theory 快照作为固定目标，只追踪编码器是否到达该目标�?
  */
-#define COMP_DEADBAND_DEG     1.0f    /* 死区阈值 (度) */
-#define COMP_SPEED_DIV        50      /* 补偿速度: TIM6=50kHz, DIV=50 → 1000步/秒 */
-#define COMP_MIN_TICKS        100U    /* 最小 tick 数 (2ms) */
-#define COMP_WATCHDOG_ROUNDS  30      /* 安全看门狗 */
+#define COMP_DEADBAND_DEG     1.0f    /* 死区阈�?? (�?) */
+#define COMP_SPEED_DIV        50      /* 补偿速度: TIM6=50kHz, DIV=50 �? 1000�?/�? */
+#define COMP_MIN_TICKS        100U    /* �?�? tick �? (2ms) */
+#define COMP_WATCHDOG_ROUNDS  30      /* 安全看门�? */
 
 void App_Static_Compensation(void)
 {
-    /* 等待规划层运动全部完成 */
+    /* 等待规划层运动全部完�? */
     while (Motor_Core_IsRunning() || Motor_Buffer_GetCount() > 0) {}
     HAL_Delay(50);
 
-    /* 快照：取一次理论步数作为本轮补偿的固定目标（后续不再重读） */
+    /* 快照：取�?次理论步数作为本轮补偿的固定目标（后续不再重读） */
     int32_t target_m1, target_m2, target_m3;
     Motor_Core_GetTheorySteps(&target_m1, &target_m2, &target_m3);
-    /* 理论(微步) → 电机轴角度: ×DEGREES_PER_STEP (0.1125°/步) */
+    /* 理论(微步) �? 电机轴角�?: ×DEGREES_PER_STEP (0.1125°/�?) */
     float target_deg_m1 = (float)target_m1 * DEGREES_PER_STEP;
     float target_deg_m2 = (float)target_m2 * DEGREES_PER_STEP;
     float target_deg_m3 = (float)target_m3 * DEGREES_PER_STEP;
 
-    /* 诊断：两侧都换算为微步显示，避免 %%f 浮点打印不工作 */
+    /* 诊断：两侧都换算为微步显示，避免 %%f 浮点打印不工�? */
     BSP_AS5600_Update(&Encoder_M1);
     BSP_AS5600_Update(&Encoder_M2);
     BSP_AS5600_Update(&Encoder_M3);
@@ -324,11 +329,11 @@ void App_Static_Compensation(void)
            (long)target_m2, (long)roundf(Encoder_M2.angle_deg * STEPS_PER_DEGREE),
            (long)target_m3, (long)roundf(Encoder_M3.angle_deg * STEPS_PER_DEGREE));
 
-    /* 持久化编码器卡死标记：仅当 theory 变化（新规划器运动）时复位 */
+    /* 持久化编码器卡死标记：仅�? theory 变化（新规划器运动）时复�? */
     static int32_t s_last_theory_m1 = -1, s_last_theory_m2 = -1, s_last_theory_m3 = -1;
     static bool s_stuck_m1 = false, s_stuck_m2 = false, s_stuck_m3 = false;
     if (target_m1 != s_last_theory_m1 || target_m2 != s_last_theory_m2 || target_m3 != s_last_theory_m3) {
-        s_stuck_m1 = s_stuck_m2 = s_stuck_m3 = false;  /* 新运动 → 复位卡死标记 */
+        s_stuck_m1 = s_stuck_m2 = s_stuck_m3 = false;  /* 新运�? �? 复位卡死标记 */
         s_last_theory_m1 = target_m1; s_last_theory_m2 = target_m2; s_last_theory_m3 = target_m3;
     }
     bool skip_m1 = s_stuck_m1, skip_m2 = s_stuck_m2, skip_m3 = s_stuck_m3;
@@ -354,13 +359,13 @@ void App_Static_Compensation(void)
 
         float abs_err1 = fabsf(err_m1), abs_err2 = fabsf(err_m2), abs_err3 = fabsf(err_m3);
 
-        /* 死区检查（跳过已标记为卡死的轴） */
+        /* 死区�?查（跳过已标记为卡死的轴�? */
         bool m1_ok = skip_m1 || (abs_err1 <= COMP_DEADBAND_DEG);
         bool m2_ok = skip_m2 || (abs_err2 <= COMP_DEADBAND_DEG);
         bool m3_ok = skip_m3 || (abs_err3 <= COMP_DEADBAND_DEG);
         if (m1_ok && m2_ok && m3_ok) return;
 
-        /* 逐轴检测编码器是否无响应（误差未缩小） */
+        /* 逐轴�?测编码器是否无响应（误差未缩小） */
         if (!skip_m1 && iter > 0 && abs_err1 >= prev_err_abs_m1) {
             skip_m1 = s_stuck_m1 = true;
             printf("[Compensation] M1 编码器无响应, 跳过该轴\r\n");
@@ -373,9 +378,9 @@ void App_Static_Compensation(void)
             skip_m3 = s_stuck_m3 = true;
             printf("[Compensation] M3 编码器无响应, 跳过该轴\r\n");
         }
-        /* 如果所有非零目标轴都被跳过，退出 */
+        /* 如果�?有非零目标轴都被跳过，�??�? */
         if ((target_m1 == 0 || skip_m1) && (target_m2 == 0 || skip_m2) && (target_m3 == 0 || skip_m3)) {
-            printf("[Compensation] 无可补偿轴, 退出\r\n");
+            printf("[Compensation] 无可补偿�?, �?出\r\n");
             return;
         }
 
@@ -383,7 +388,7 @@ void App_Static_Compensation(void)
         prev_err_abs_m2 = abs_err2;
         prev_err_abs_m3 = abs_err3;
 
-        /* 全局发散检测（仅对未被跳过的轴） */
+        /* 全局发散�?测（仅对未被跳过的轴�? */
         float err_sum = (skip_m1 ? 0.0f : abs_err1) +
                         (skip_m2 ? 0.0f : abs_err2) +
                         (skip_m3 ? 0.0f : abs_err3);
@@ -402,7 +407,7 @@ void App_Static_Compensation(void)
         if (!skip_m3 && abs_err3 > COMP_DEADBAND_DEG)
             comp_m3 = (int32_t)roundf(err_m3 * STEPS_PER_DEGREE);
 
-        /* 无有效补偿量则跳过推帧 */
+        /* 无有效补偿量则跳过推�? */
         if (comp_m1 != 0 || comp_m2 != 0 || comp_m3 != 0) {
             MotionFrame_t comp_frame;
             comp_frame.delta_m1 = comp_m1;
@@ -419,7 +424,7 @@ void App_Static_Compensation(void)
 
             Motor_Buffer_Push(&comp_frame);
             while (Motor_Core_IsRunning() || Motor_Buffer_GetCount() > 0) {}
-            HAL_Delay(30);  /* 补偿后短暂消抖 */
+            HAL_Delay(30);  /* 补偿后短暂消�? */
         }
 
         printf("[Compensation] #%d M1:%+ld M2:%+ld M3:%+ld "

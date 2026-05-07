@@ -3,6 +3,7 @@
 
 #include "main.h"
 #include <stdint.h>
+#include <stdbool.h>
 
 /* AS5600 I2C 地址 (7-bit 0x36, 左移 1 位 = 0x6C) */
 #define AS5600_ADDR_WRITE   0x6CU
@@ -30,7 +31,7 @@ extern AS5600_t Encoder_M3;
 
 /* API */
 void BSP_AS5600_Init(void);
-void BSP_AS5600_Update(AS5600_t *enc);
-void BSP_AS5600_SetZero(AS5600_t *enc);
+bool BSP_AS5600_Update(AS5600_t *enc);
+bool BSP_AS5600_SetZero(AS5600_t *enc);
 
 #endif /* __BSP_AS5600_H__ */

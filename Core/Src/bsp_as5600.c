@@ -48,12 +48,12 @@ void BSP_AS5600_Init(void)
     Encoder_M3.angle_deg = 0.0f;
 }
 
-void BSP_AS5600_Update(AS5600_t *enc)
+bool BSP_AS5600_Update(AS5600_t *enc)
 {
-    if (enc == NULL || enc->hi2c == NULL) return;
+    if (enc == NULL || enc->hi2c == NULL) return false;
 
     float physical_deg = AS5600_ReadPhysicalDegAvg(enc);
-    if (physical_deg < 0.0f) return;
+    if (physical_deg < 0.0f) return false;
 
     /* 归一化到 (-180, 180], 避免 0/360 边界跳变 */
     float adjusted = physical_deg - enc->zero_offset;
@@ -61,15 +61,17 @@ void BSP_AS5600_Update(AS5600_t *enc)
     while (adjusted <= -180.0f) adjusted += 360.0f;
 
     enc->angle_deg = adjusted;
+    return true;
 }
 
-void BSP_AS5600_SetZero(AS5600_t *enc)
+bool BSP_AS5600_SetZero(AS5600_t *enc)
 {
-    if (enc == NULL || enc->hi2c == NULL) return;
+    if (enc == NULL || enc->hi2c == NULL) return false;
 
     float physical_deg = AS5600_ReadPhysicalDegAvg(enc);
-    if (physical_deg < 0.0f) return;
+    if (physical_deg < 0.0f) return false;
 
     enc->zero_offset = physical_deg;
     enc->angle_deg = 0.0f;
+    return true;
 }
