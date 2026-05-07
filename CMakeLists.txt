@@ -64,6 +64,7 @@ target_sources(${CMAKE_PROJECT_NAME} PRIVATE
     Core/Src/bsp_gripper.c
     Core/Src/bsp_as5600.c
     Core/Src/closed_loop.c
+    Core/Src/common.c
 
 )
 

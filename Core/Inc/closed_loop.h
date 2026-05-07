@@ -5,31 +5,26 @@
 #include <stdint.h>
 #include "bsp_as5600.h"
 
-/* PID 控制器 */
-typedef struct {
-    float kp, ki, kd;
-    float integral;
-    float prev_error;
-    float integral_max;   /* 积分限幅 (度) */
-    float output_max;     /* 输出限幅 (度/周期) */
-} PID_t;
+#define CL_AXIS_COUNT   3
 
-/* 单轴闭环控制器 */
+/* ── 单轴闭环控制器 ── */
 typedef struct {
-    PID_t pid;
+    /* PID 参数 (可在线调参) */
+    float kp, ki, kd;
+    float deadband_deg;       /* 死区 (度) */
+
+    /* 运行时状态 (只读) */
     AS5600_t *encoder;
-    float target_deg;     /* 目标角度 (0~360) */
-    float deadband_deg;   /* 死区 (度) */
+    float target_deg;
     bool enabled;
-    uint32_t last_correct_ms;
 } MotorCL_t;
 
-extern MotorCL_t g_cl_m1;
-extern MotorCL_t g_cl_m2;
-extern MotorCL_t g_cl_m3;
+/* 三轴控制器数组 */
+extern MotorCL_t g_axis[CL_AXIS_COUNT];
 
+/* ── API ── */
 void CL_Init(void);
-void CL_SetTargetsFromTheory(void);
-void CL_Update(void);  /* 主循环中以~50Hz 调用 */
+void CL_SyncTarget(void);     /* 从理论步数同步目标角度 */
+void CL_Update(void);         /* 50Hz 闭环更新, 由主循环调用 */
 
 #endif

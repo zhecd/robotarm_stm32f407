@@ -171,25 +171,13 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-      /* 1Hz 编码器数据上�? */
+      /* 1Hz 编码器数据上报 */
       {
           static uint32_t last_tick = 0;
           uint32_t now = HAL_GetTick();
           if (now - last_tick >= 1000) {
               last_tick = now;
-              BSP_AS5600_Update(&Encoder_M1);
-              BSP_AS5600_Update(&Encoder_M2);
-              BSP_AS5600_Update(&Encoder_M3);
-              /* 用整数避�? newlib-nano 不支�? %%f; 手动处理符号 */
-              {
-                  int d1 = (int)(Encoder_M1.angle_deg * 10.0f);
-                  int d2 = (int)(Encoder_M2.angle_deg * 10.0f);
-                  int d3 = (int)(Encoder_M3.angle_deg * 10.0f);
-                  printf("ENC M1:%s%d.%d M2:%s%d.%d M3:%s%d.%d\r\n",
-                         d1 < 0 ? "-" : "", abs(d1) / 10, abs(d1) % 10,
-                         d2 < 0 ? "-" : "", abs(d2) / 10, abs(d2) % 10,
-                         d3 < 0 ? "-" : "", abs(d3) / 10, abs(d3) % 10);
-              }
+              BSP_AS5600_PrintStatus();
           }
       }
 
@@ -213,7 +201,7 @@ int main(void)
               if (GCode_ParseLine(rx_line, &gcode_frame)) {
                   Cmd_Executor_Run(&gcode_frame);
                   App_Static_Compensation();
-                  CL_SetTargetsFromTheory();
+                  CL_SyncTarget();
                   printf("ok\r\n");
               } else {
                   printf("error: Parse failed!\r\n");
@@ -316,18 +304,18 @@ void App_Static_Compensation(void)
     int32_t target_m1, target_m2, target_m3;
     Motor_Core_GetTheorySteps(&target_m1, &target_m2, &target_m3);
     /* 理论(微步) �? 电机轴角�?: ×DEGREES_PER_STEP (0.1125°/�?) */
-    float target_deg_m1 = (float)target_m1 * DEGREES_PER_STEP;
-    float target_deg_m2 = (float)target_m2 * DEGREES_PER_STEP;
-    float target_deg_m3 = (float)target_m3 * DEGREES_PER_STEP;
+    float target_deg_m1 = StepsToDeg(target_m1);
+    float target_deg_m2 = StepsToDeg(target_m2);
+    float target_deg_m3 = StepsToDeg(target_m3);
 
     /* 诊断：两侧都换算为微步显示，避免 %%f 浮点打印不工�? */
     BSP_AS5600_Update(&Encoder_M1);
     BSP_AS5600_Update(&Encoder_M2);
     BSP_AS5600_Update(&Encoder_M3);
     printf("[CompDebug] M1:th=%ldst enc~%ldst | M2:th=%ldst enc~%ldst | M3:th=%ldst enc~%ldst\r\n",
-           (long)target_m1, (long)roundf(Encoder_M1.angle_deg * STEPS_PER_DEGREE),
-           (long)target_m2, (long)roundf(Encoder_M2.angle_deg * STEPS_PER_DEGREE),
-           (long)target_m3, (long)roundf(Encoder_M3.angle_deg * STEPS_PER_DEGREE));
+           (long)target_m1, (long)DegToSteps(Encoder_M1.angle_deg),
+           (long)target_m2, (long)DegToSteps(Encoder_M2.angle_deg),
+           (long)target_m3, (long)DegToSteps(Encoder_M3.angle_deg));
 
     /* 持久化编码器卡死标记：仅�? theory 变化（新规划器运动）时复�? */
     static int32_t s_last_theory_m1 = -1, s_last_theory_m2 = -1, s_last_theory_m3 = -1;
@@ -346,16 +334,9 @@ void App_Static_Compensation(void)
         if (!skip_m2) BSP_AS5600_Update(&Encoder_M2);
         if (!skip_m3) BSP_AS5600_Update(&Encoder_M3);
 
-        float err_m1 = target_deg_m1 - Encoder_M1.angle_deg;
-        float err_m2 = target_deg_m2 - Encoder_M2.angle_deg;
-        float err_m3 = target_deg_m3 - Encoder_M3.angle_deg;
-
-        while (err_m1 >  180.0f) err_m1 -= 360.0f;
-        while (err_m1 < -180.0f) err_m1 += 360.0f;
-        while (err_m2 >  180.0f) err_m2 -= 360.0f;
-        while (err_m2 < -180.0f) err_m2 += 360.0f;
-        while (err_m3 >  180.0f) err_m3 -= 360.0f;
-        while (err_m3 < -180.0f) err_m3 += 360.0f;
+        float err_m1 = AngleWrap180(target_deg_m1 - Encoder_M1.angle_deg);
+        float err_m2 = AngleWrap180(target_deg_m2 - Encoder_M2.angle_deg);
+        float err_m3 = AngleWrap180(target_deg_m3 - Encoder_M3.angle_deg);
 
         float abs_err1 = fabsf(err_m1), abs_err2 = fabsf(err_m2), abs_err3 = fabsf(err_m3);
 
@@ -395,17 +376,17 @@ void App_Static_Compensation(void)
         if (iter > 0 && err_sum == 0.0f) return;
         if (iter >= COMP_WATCHDOG_ROUNDS) {
             printf("[Compensation] 停止:%d轮未收敛 err~%ldst\r\n",
-                   COMP_WATCHDOG_ROUNDS, (long)roundf(err_sum * STEPS_PER_DEGREE));
+                   COMP_WATCHDOG_ROUNDS, (long)DegToSteps(err_sum));
             return;
         }
 
         int32_t comp_m1 = 0, comp_m2 = 0, comp_m3 = 0;
         if (!skip_m1 && abs_err1 > COMP_DEADBAND_DEG)
-            comp_m1 = (int32_t)roundf(err_m1 * STEPS_PER_DEGREE);
+            comp_m1 = DegToSteps(err_m1);
         if (!skip_m2 && abs_err2 > COMP_DEADBAND_DEG)
-            comp_m2 = (int32_t)roundf(err_m2 * STEPS_PER_DEGREE);
+            comp_m2 = DegToSteps(err_m2);
         if (!skip_m3 && abs_err3 > COMP_DEADBAND_DEG)
-            comp_m3 = (int32_t)roundf(err_m3 * STEPS_PER_DEGREE);
+            comp_m3 = DegToSteps(err_m3);
 
         /* 无有效补偿量则跳过推�? */
         if (comp_m1 != 0 || comp_m2 != 0 || comp_m3 != 0) {
@@ -414,11 +395,7 @@ void App_Static_Compensation(void)
             comp_frame.delta_m2 = comp_m2;
             comp_frame.delta_m3 = comp_m3;
 
-            uint32_t max_delta = (uint32_t)(abs(comp_m1));
-            if ((uint32_t)abs(comp_m2) > max_delta) max_delta = (uint32_t)abs(comp_m2);
-            if ((uint32_t)abs(comp_m3) > max_delta) max_delta = (uint32_t)abs(comp_m3);
-            comp_frame.total_ticks = (max_delta > 0U)
-                ? (max_delta * COMP_SPEED_DIV) : COMP_MIN_TICKS;
+            comp_frame.total_ticks = Common_MaxAbs3(comp_m1, comp_m2, comp_m3) * COMP_SPEED_DIV;
             if (comp_frame.total_ticks < COMP_MIN_TICKS)
                 comp_frame.total_ticks = COMP_MIN_TICKS;
 
@@ -431,9 +408,9 @@ void App_Static_Compensation(void)
                "(errStp:%+ld %+ld %+ld)%s%s%s\r\n",
                iter + 1,
                (long)comp_m1, (long)comp_m2, (long)comp_m3,
-               (long)roundf(err_m1 * STEPS_PER_DEGREE),
-               (long)roundf(err_m2 * STEPS_PER_DEGREE),
-               (long)roundf(err_m3 * STEPS_PER_DEGREE),
+               (long)DegToSteps(err_m1),
+               (long)DegToSteps(err_m2),
+               (long)DegToSteps(err_m3),
                skip_m1 ? " [M1跳过]" : "",
                skip_m2 ? " [M2跳过]" : "",
                skip_m3 ? " [M3跳过]" : "");
