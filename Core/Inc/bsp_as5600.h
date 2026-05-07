@@ -3,29 +3,34 @@
 
 #include "main.h"
 #include <stdint.h>
-#include <stdbool.h>
 
-#ifdef __cplusplus
-extern "C" {
-#endif
+/* AS5600 I2C 地址 (7-bit 0x36, 左移 1 位 = 0x6C) */
+#define AS5600_ADDR_WRITE   0x6CU
 
-#define AS5600_ADDR          0x36
-#define AS5600_REG_RAW_ANGLE 0x0C
+/* AS5600 寄存器 */
+#define AS5600_REG_RAW_ANGLE  0x0CU  /* 12-bit RAW 角度 (低4bit为AGC, 需屏蔽) */
+#define AS5600_AVG_SAMPLES    5      /* 多次采样取平均以滤除磁编噪声 */
 
-typedef enum {
-    ENCODER_M1 = 0,
-    ENCODER_M2 = 1,
-    ENCODER_M3 = 2,
-    ENCODER_COUNT = 3
-} EncoderIndex_t;
+/* 步进电机参数: 16 细分, 步距角 1.8° */
+#define GEAR_RATIO          1.0f
+#define STEPS_PER_DEGREE    ((3200.0f * GEAR_RATIO) / 360.0f)
+#define DEGREES_PER_STEP    (360.0f / (3200.0f * GEAR_RATIO))
 
+/* 编码器实例结构体 */
+typedef struct {
+    I2C_HandleTypeDef *hi2c;
+    float zero_offset;   /* 零点偏移角度 (物理角度) */
+    float angle_deg;     /* 当前角度 (0~360, 已减去零点偏移) */
+} AS5600_t;
+
+/* 三个全局编码器实例 */
+extern AS5600_t Encoder_M1;
+extern AS5600_t Encoder_M2;
+extern AS5600_t Encoder_M3;
+
+/* API */
 void BSP_AS5600_Init(void);
-bool BSP_AS5600_ReadAngle(EncoderIndex_t encoder, uint16_t *raw_angle);
-uint16_t BSP_AS5600_GetAngle(EncoderIndex_t encoder);
-void BSP_AS5600_CalibrateZero(void);
+void BSP_AS5600_Update(AS5600_t *enc);
+void BSP_AS5600_SetZero(AS5600_t *enc);
 
-#ifdef __cplusplus
-}
-#endif
-
-#endif
+#endif /* __BSP_AS5600_H__ */

@@ -1,59 +1,74 @@
 #include "bsp_as5600.h"
 #include "i2c.h"
 
-static I2C_HandleTypeDef *s_i2c_handles[ENCODER_COUNT];
-static uint16_t s_zero_offsets[ENCODER_COUNT];
+AS5600_t Encoder_M1;
+AS5600_t Encoder_M2;
+AS5600_t Encoder_M3;
+
+/* 单次读取原始物理角度 (0~360), I2C 失败返回负值 */
+static float AS5600_ReadPhysicalDeg(AS5600_t *enc)
+{
+    uint8_t data[2];
+    if (HAL_I2C_Mem_Read(enc->hi2c, AS5600_ADDR_WRITE, AS5600_REG_RAW_ANGLE,
+                          I2C_MEMADD_SIZE_8BIT, data, 2, 100) != HAL_OK) {
+        return -1.0f;
+    }
+    /* 低 4 bit 是 AGC, 必须用 0x0FFF 屏蔽, 否则角度会随 AGC 跳动 ±1.4° */
+    uint16_t raw_angle = (((uint16_t)data[0] << 8) | data[1]) & 0x0FFFU;
+    return (float)raw_angle * 360.0f / 4096.0f;
+}
+
+/* 多次采样取平均，滤除磁编瞬时噪声 */
+static float AS5600_ReadPhysicalDegAvg(AS5600_t *enc)
+{
+    float sum = 0.0f;
+    int valid = 0;
+    for (int i = 0; i < AS5600_AVG_SAMPLES; i++) {
+        float val = AS5600_ReadPhysicalDeg(enc);
+        if (val >= 0.0f) {
+            sum += val;
+            valid++;
+        }
+    }
+    return (valid > 0) ? (sum / (float)valid) : -1.0f;
+}
 
 void BSP_AS5600_Init(void)
 {
-    s_i2c_handles[ENCODER_M1] = &hi2c1;
-    s_i2c_handles[ENCODER_M2] = &hi2c2;
-    s_i2c_handles[ENCODER_M3] = &hi2c3;
+    Encoder_M1.hi2c = &hi2c1;
+    Encoder_M1.zero_offset = 0.0f;
+    Encoder_M1.angle_deg = 0.0f;
 
-    BSP_AS5600_CalibrateZero();
+    Encoder_M2.hi2c = &hi2c2;
+    Encoder_M2.zero_offset = 0.0f;
+    Encoder_M2.angle_deg = 0.0f;
+
+    Encoder_M3.hi2c = &hi2c3;
+    Encoder_M3.zero_offset = 0.0f;
+    Encoder_M3.angle_deg = 0.0f;
 }
 
-bool BSP_AS5600_ReadAngle(EncoderIndex_t encoder, uint16_t *raw_angle)
+void BSP_AS5600_Update(AS5600_t *enc)
 {
-    if (encoder >= ENCODER_COUNT || raw_angle == NULL)
-        return false;
+    if (enc == NULL || enc->hi2c == NULL) return;
 
-    uint8_t data[2];
-    HAL_StatusTypeDef ret = HAL_I2C_Mem_Read(
-        s_i2c_handles[encoder],
-        AS5600_ADDR << 1,
-        AS5600_REG_RAW_ANGLE,
-        I2C_MEMADD_SIZE_8BIT,
-        data, 2, 100
-    );
+    float physical_deg = AS5600_ReadPhysicalDegAvg(enc);
+    if (physical_deg < 0.0f) return;
 
-    if (ret != HAL_OK)
-        return false;
+    float adjusted = physical_deg - enc->zero_offset;
+    while (adjusted < 0.0f)   adjusted += 360.0f;
+    while (adjusted >= 360.0f) adjusted -= 360.0f;
 
-    *raw_angle = ((uint16_t)data[0] << 8) | data[1];
-    return true;
+    enc->angle_deg = adjusted;
 }
 
-uint16_t BSP_AS5600_GetAngle(EncoderIndex_t encoder)
+void BSP_AS5600_SetZero(AS5600_t *enc)
 {
-    uint16_t raw;
-    if (!BSP_AS5600_ReadAngle(encoder, &raw))
-        return 0;
+    if (enc == NULL || enc->hi2c == NULL) return;
 
-    uint16_t offset = s_zero_offsets[encoder];
-    if (raw >= offset)
-        return raw - offset;
-    else
-        return raw + 4096 - offset;
-}
+    float physical_deg = AS5600_ReadPhysicalDegAvg(enc);
+    if (physical_deg < 0.0f) return;
 
-void BSP_AS5600_CalibrateZero(void)
-{
-    for (int i = 0; i < ENCODER_COUNT; i++) {
-        uint16_t raw;
-        if (BSP_AS5600_ReadAngle((EncoderIndex_t)i, &raw))
-            s_zero_offsets[i] = raw;
-        else
-            s_zero_offsets[i] = 0;
-    }
+    enc->zero_offset = physical_deg;
+    enc->angle_deg = 0.0f;
 }
