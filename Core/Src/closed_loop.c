@@ -2,6 +2,7 @@
 #include "motor_core.h"
 #include "common.h"
 #include <math.h>
+#include <stdio.h>
 #include <stdlib.h>
 
 /* ── PID 控制器 (模块私有) ── */
@@ -9,20 +10,25 @@
 #define CL_KI            0.05f
 #define CL_KD            0.15f
 #define CL_INTEGRAL_MAX  5.0f
-#define CL_OUTPUT_MAX    1.5f
 #define CL_DEADBAND_DEG  3.0f
 #define CL_UPDATE_MS     20U
-#define CL_COOLDOWN_MS   500U
-#define CL_I_SEP_ERR     3.0f     /* 积分分离阈值 (度) */
-
-#define CL_SPEED_DIV     200U
+#define CL_I_SEP_ERR     3.0f
 #define CL_MIN_TICKS     100U
+#define CL_SPEED_DIV     200U
+
+/* 末端微调 (小误差): 慢速小幅, 防振荡 */
+#define CL_OUTPUT_MAX_LO     1.5f
+#define CL_COOLDOWN_LO_MS    500U
+
+/* 丢步恢复 (大误差 > LARGE_ERR_DEG): 快速大力拉回 */
+#define CL_LARGE_ERR_DEG     5.0f
+#define CL_OUTPUT_MAX_HI     3.0f
+#define CL_COOLDOWN_HI_MS    100U
 
 typedef struct {
     float integral;
     float prev_error;
     float integral_max;
-    float output_max;
 } PID_t;
 
 static PID_t s_pid[CL_AXIS_COUNT];
@@ -38,31 +44,26 @@ static void PID_Reset(PID_t *p)
     p->prev_error = 0.0f;
 }
 
-static float PID_Compute(MotorCL_t *cl, PID_t *p, float error, float dt)
+static float PID_Compute(MotorCL_t *cl, PID_t *p, float error, float dt,
+                         float out_max)
 {
-    /* P */
     float out = cl->kp * error;
 
-    /* I (积分分离) */
     if (fabsf(error) < CL_I_SEP_ERR) {
         p->integral += error * dt;
-        float lim = p->integral_max;
-        if (p->integral >  lim) p->integral =  lim;
-        if (p->integral < -lim) p->integral = -lim;
+        if (p->integral >  p->integral_max) p->integral =  p->integral_max;
+        if (p->integral < -p->integral_max) p->integral = -p->integral_max;
     } else {
         p->integral = 0.0f;
     }
     out += cl->ki * p->integral;
 
-    /* D */
     if (dt > 1e-6f)
         out += cl->kd * (error - p->prev_error) / dt;
     p->prev_error = error;
 
-    /* 输出限幅 */
-    float lim = p->output_max;
-    if (out >  lim) out =  lim;
-    if (out < -lim) out = -lim;
+    if (out >  out_max) out =  out_max;
+    if (out < -out_max) out = -out_max;
     return out;
 }
 
@@ -81,8 +82,7 @@ void CL_Init(void)
         g_axis[i].target_deg = 0.0f;
         g_axis[i].enabled   = true;
 
-        s_pid[i] = (PID_t){.integral_max = CL_INTEGRAL_MAX,
-                           .output_max   = CL_OUTPUT_MAX};
+        s_pid[i] = (PID_t){.integral_max = CL_INTEGRAL_MAX};
         s_last_correct_ms[i] = 0;
     }
 }
@@ -91,10 +91,13 @@ void CL_SyncTarget(void)
 {
     int32_t t[CL_AXIS_COUNT];
     Motor_Core_GetTheorySteps(&t[0], &t[1], &t[2]);
+    uint32_t now = HAL_GetTick();
 
     for (int i = 0; i < CL_AXIS_COUNT; i++) {
         g_axis[i].target_deg = StepsToDeg(t[i]);
+        g_axis[i].enabled = true;
         PID_Reset(&s_pid[i]);
+        s_last_correct_ms[i] = now;   /* 重置冷却, 先稳定再介入 */
     }
 }
 
@@ -103,18 +106,24 @@ static int32_t ComputeCorrection(int i, uint32_t now_ms)
 {
     MotorCL_t *cl = &g_axis[i];
     if (!cl->enabled || !cl->encoder) return 0;
-    if (now_ms - s_last_correct_ms[i] < CL_COOLDOWN_MS) return 0;
 
-    BSP_AS5600_Update(cl->encoder);
+    if (!BSP_AS5600_Update(cl->encoder)) return 0;  /* 读取失败, 不用假数据 */
     float error = AngleWrap180(cl->target_deg - cl->encoder->angle_deg);
+    float abs_err = fabsf(error);
 
-    if (fabsf(error) <= cl->deadband_deg) {
+    if (abs_err <= cl->deadband_deg) {
         PID_Reset(&s_pid[i]);
         return 0;
     }
 
+    /* 自适应: 大误差用快速强力参数, 小误差用保守参数防振荡 */
+    bool large = (abs_err > CL_LARGE_ERR_DEG);
+    uint32_t cooldown = large ? CL_COOLDOWN_HI_MS : CL_COOLDOWN_LO_MS;
+    if (now_ms - s_last_correct_ms[i] < cooldown) return 0;
+
+    float out_max = large ? CL_OUTPUT_MAX_HI : CL_OUTPUT_MAX_LO;
     float corr_deg = PID_Compute(cl, &s_pid[i], error,
-                                 (float)CL_UPDATE_MS * 0.001f);
+                                 (float)CL_UPDATE_MS * 0.001f, out_max);
     if (fabsf(corr_deg) < 0.01f) return 0;
 
     return DegToSteps(corr_deg);

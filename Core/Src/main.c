@@ -171,13 +171,26 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-      /* 1Hz 编码器数据上报 */
+      /* 1Hz 编码器数据上报 (仅数值变化时输出) */
       {
           static uint32_t last_tick = 0;
           uint32_t now = HAL_GetTick();
           if (now - last_tick >= 1000) {
               last_tick = now;
-              BSP_AS5600_PrintStatus();
+              float cur[CL_AXIS_COUNT];
+              for (int i = 0; i < CL_AXIS_COUNT; i++)
+                  cur[i] = (BSP_AS5600_Update(g_axis[i].encoder))
+                         ? g_axis[i].encoder->angle_deg : 0.0f;
+              static float last[CL_AXIS_COUNT];
+              static bool first = true;
+              float diff = fabsf(cur[0] - last[0])
+                         + fabsf(cur[1] - last[1])
+                         + fabsf(cur[2] - last[2]);
+              if (first || diff > 0.05f) {
+                  first = false;
+                  BSP_AS5600_PrintStatus();
+                  for (int i = 0; i < CL_AXIS_COUNT; i++) last[i] = cur[i];
+              }
           }
       }
 
@@ -280,6 +293,11 @@ void App_Align_Coordinates(void)
            ok1 ? "OK" : "FAIL",
            ok2 ? "OK" : "FAIL",
            ok3 ? "OK" : "FAIL");
+
+    /* 编码器标定失败则禁用对应 PID 轴, 防止用假数据反复修正 */
+    g_axis[0].enabled = ok1;
+    g_axis[1].enabled = ok2;
+    g_axis[2].enabled = ok3;
 }
 
 /*
@@ -313,10 +331,6 @@ void App_Static_Compensation(void)
     BSP_AS5600_Update(&Encoder_M1);
     BSP_AS5600_Update(&Encoder_M2);
     BSP_AS5600_Update(&Encoder_M3);
-    printf("[CompDebug] M1:th=%ldst enc~%ldst | M2:th=%ldst enc~%ldst | M3:th=%ldst enc~%ldst\r\n",
-           (long)target_m1, (long)DegToSteps(Encoder_M1.angle_deg),
-           (long)target_m2, (long)DegToSteps(Encoder_M2.angle_deg),
-           (long)target_m3, (long)DegToSteps(Encoder_M3.angle_deg));
 
     /* 持久化编码器卡死标记：仅�? theory 变化（新规划器运动）时复�? */
     static int32_t s_last_theory_m1 = -1, s_last_theory_m2 = -1, s_last_theory_m3 = -1;
@@ -331,9 +345,9 @@ void App_Static_Compensation(void)
 
     for (int iter = 0; ; iter++)
     {
-        if (!skip_m1) BSP_AS5600_Update(&Encoder_M1);
-        if (!skip_m2) BSP_AS5600_Update(&Encoder_M2);
-        if (!skip_m3) BSP_AS5600_Update(&Encoder_M3);
+        if (!skip_m1 && !BSP_AS5600_Update(&Encoder_M1)) { skip_m1 = s_stuck_m1 = true; }
+        if (!skip_m2 && !BSP_AS5600_Update(&Encoder_M2)) { skip_m2 = s_stuck_m2 = true; }
+        if (!skip_m3 && !BSP_AS5600_Update(&Encoder_M3)) { skip_m3 = s_stuck_m3 = true; }
 
         float err_m1 = AngleWrap180(target_deg_m1 - Encoder_M1.angle_deg);
         float err_m2 = AngleWrap180(target_deg_m2 - Encoder_M2.angle_deg);
@@ -350,19 +364,15 @@ void App_Static_Compensation(void)
         /* 逐轴�?测编码器是否无响应（误差未缩小） */
         if (!skip_m1 && iter > 0 && abs_err1 >= prev_err_abs_m1) {
             skip_m1 = s_stuck_m1 = true;
-            printf("[Compensation] M1 编码器无响应, 跳过该轴\r\n");
         }
         if (!skip_m2 && iter > 0 && abs_err2 >= prev_err_abs_m2) {
             skip_m2 = s_stuck_m2 = true;
-            printf("[Compensation] M2 编码器无响应, 跳过该轴\r\n");
         }
         if (!skip_m3 && iter > 0 && abs_err3 >= prev_err_abs_m3) {
             skip_m3 = s_stuck_m3 = true;
-            printf("[Compensation] M3 编码器无响应, 跳过该轴\r\n");
         }
         /* 如果�?有非零目标轴都被跳过，�??�? */
         if ((target_m1 == 0 || skip_m1) && (target_m2 == 0 || skip_m2) && (target_m3 == 0 || skip_m3)) {
-            printf("[Compensation] 无可补偿�?, �?出\r\n");
             return;
         }
 
@@ -376,8 +386,6 @@ void App_Static_Compensation(void)
                         (skip_m3 ? 0.0f : abs_err3);
         if (iter > 0 && err_sum == 0.0f) return;
         if (iter >= COMP_WATCHDOG_ROUNDS) {
-            printf("[Compensation] 停止:%d轮未收敛 err~%ldst\r\n",
-                   COMP_WATCHDOG_ROUNDS, (long)DegToSteps(err_sum));
             return;
         }
 
@@ -405,16 +413,6 @@ void App_Static_Compensation(void)
             HAL_Delay(30);  /* 补偿后短暂消�? */
         }
 
-        printf("[Compensation] #%d M1:%+ld M2:%+ld M3:%+ld "
-               "(errStp:%+ld %+ld %+ld)%s%s%s\r\n",
-               iter + 1,
-               (long)comp_m1, (long)comp_m2, (long)comp_m3,
-               (long)DegToSteps(err_m1),
-               (long)DegToSteps(err_m2),
-               (long)DegToSteps(err_m3),
-               skip_m1 ? " [M1跳过]" : "",
-               skip_m2 ? " [M2跳过]" : "",
-               skip_m3 ? " [M3跳过]" : "");
     }
 }
 

@@ -169,10 +169,4 @@ void Motor_Core_AdjustTheorySteps(int32_t dm1, int32_t dm2, int32_t dm3)
     g_theory_steps_m2 += dm2;
     g_theory_steps_m3 += dm3;
     __enable_irq();
-    /* 诊断：只打印非零累加 */
-    if (dm1 != 0 || dm2 != 0 || dm3 != 0) {
-        printf("[ThAdj] +(%ld,%ld,%ld) → now(%ld,%ld,%ld)\r\n",
-               (long)dm1, (long)dm2, (long)dm3,
-               (long)g_theory_steps_m1, (long)g_theory_steps_m2, (long)g_theory_steps_m3);
-    }
 }

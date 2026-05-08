@@ -63,17 +63,11 @@ bool Motion_Planner_MoveLine(float target_x, float target_y, float target_z, uin
     const float distance = sqrtf(dx * dx + dy * dy + dz * dz);
 
     if (distance < 0.1f) {
-        printf("[Planner] tgt(%.1f,%.1f,%.1f) dist=%.2fmm → 已在目标, 跳过\r\n",
-               (double)target_x, (double)target_y, (double)target_z, (double)distance);
         current_x = target_x;
         current_y = target_y;
         current_z = target_z;
         return true;
     }
-
-    printf("[Planner] tgt(%.1f,%.1f,%.1f) dist=%.1fmm dur=%lums → 生成运动\r\n",
-           (double)target_x, (double)target_y, (double)target_z,
-           (double)distance, (unsigned long)duration_ms);
 
     uint32_t total_ticks = duration_ms * TICKS_PER_MS;
     if (total_ticks < MIN_FRAME_TICKS) {
