@@ -8,17 +8,18 @@
 /* ── PID 控制器 (模块私有) ── */
 #define CL_KP            0.25f
 #define CL_KI            0.05f
-#define CL_KD            0.15f
+#define CL_KD            0.08f
 #define CL_INTEGRAL_MAX  5.0f
-#define CL_DEADBAND_DEG  3.0f
+#define CL_DEADBAND_DEG  5.0f
 #define CL_UPDATE_MS     20U
 #define CL_I_SEP_ERR     3.0f
 #define CL_MIN_TICKS     100U
 #define CL_SPEED_DIV     200U
+#define CL_EMA_ALPHA     0.2f
 
 /* 末端微调 (小误差): 慢速小幅, 防振荡 */
-#define CL_OUTPUT_MAX_LO     1.5f
-#define CL_COOLDOWN_LO_MS    500U
+#define CL_OUTPUT_MAX_LO     1.0f
+#define CL_COOLDOWN_LO_MS    800U
 
 /* 丢步恢复 (大误差 > LARGE_ERR_DEG): 快速大力拉回 */
 #define CL_LARGE_ERR_DEG     5.0f
@@ -81,6 +82,8 @@ void CL_Init(void)
         g_axis[i].encoder   = enc[i];
         g_axis[i].target_deg = 0.0f;
         g_axis[i].enabled   = true;
+        g_axis[i].filt_angle = 0.0f;
+        g_axis[i].filt_valid = false;
 
         s_pid[i] = (PID_t){.integral_max = CL_INTEGRAL_MAX};
         s_last_correct_ms[i] = 0;
@@ -96,6 +99,7 @@ void CL_SyncTarget(void)
     for (int i = 0; i < CL_AXIS_COUNT; i++) {
         g_axis[i].target_deg = StepsToDeg(t[i]);
         g_axis[i].enabled = true;
+        g_axis[i].filt_valid = false;   /* 复位滤波器, 下次读取时重新初始化 */
         PID_Reset(&s_pid[i]);
         s_last_correct_ms[i] = now;   /* 重置冷却, 先稳定再介入 */
     }
@@ -108,7 +112,14 @@ static int32_t ComputeCorrection(int i, uint32_t now_ms)
     if (!cl->enabled || !cl->encoder) return 0;
 
     if (!BSP_AS5600_Update(cl->encoder)) return 0;  /* 读取失败, 不用假数据 */
-    float error = AngleWrap180(cl->target_deg - cl->encoder->angle_deg);
+    float raw = cl->encoder->angle_deg;
+    if (!cl->filt_valid) {
+        cl->filt_angle = raw;
+        cl->filt_valid = true;
+    } else {
+        cl->filt_angle += CL_EMA_ALPHA * (raw - cl->filt_angle);
+    }
+    float error = AngleWrap180(cl->target_deg - cl->filt_angle);
     float abs_err = fabsf(error);
 
     if (abs_err <= cl->deadband_deg) {

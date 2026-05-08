@@ -17,6 +17,10 @@ typedef struct {
     AS5600_t *encoder;
     float target_deg;
     bool enabled;
+
+    /* 编码器低通滤波 */
+    float filt_angle;
+    bool filt_valid;
 } MotorCL_t;
 
 /* 三轴控制器数组 */

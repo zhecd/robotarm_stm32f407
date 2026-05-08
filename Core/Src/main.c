@@ -186,7 +186,7 @@ int main(void)
               float diff = fabsf(cur[0] - last[0])
                          + fabsf(cur[1] - last[1])
                          + fabsf(cur[2] - last[2]);
-              if (first || diff > 0.05f) {
+              if (first || diff > 1.0f) {
                   first = false;
                   BSP_AS5600_PrintStatus();
                   for (int i = 0; i < CL_AXIS_COUNT; i++) last[i] = cur[i];
