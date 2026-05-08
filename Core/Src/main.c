@@ -194,7 +194,8 @@ int main(void)
           }
       }
 
-      /* 50Hz PID 闭环位置保持 */
+      /* 50Hz PID 闭环位置保持 (仅 G-code 模式) */
+      if (current_sys_mode == SYS_MODE_GCODE)
       {
           static uint32_t last_cl = 0;
           uint32_t now = HAL_GetTick();
