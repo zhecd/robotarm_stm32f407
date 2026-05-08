@@ -10,19 +10,19 @@
 #define CL_KI            0.05f
 #define CL_KD            0.08f
 #define CL_INTEGRAL_MAX  5.0f
-#define CL_DEADBAND_DEG  5.0f
+#define CL_DEADBAND_DEG  2.0f
 #define CL_UPDATE_MS     20U
 #define CL_I_SEP_ERR     3.0f
 #define CL_MIN_TICKS     100U
 #define CL_SPEED_DIV     200U
 #define CL_EMA_ALPHA     0.2f
 
-/* 末端微调 (小误差): 慢速小幅, 防振荡 */
+/* 末端微调 (2~8° 小误差): 慢速小幅, 防振荡 */
 #define CL_OUTPUT_MAX_LO     1.0f
 #define CL_COOLDOWN_LO_MS    800U
 
-/* 丢步恢复 (大误差 > LARGE_ERR_DEG): 快速大力拉回 */
-#define CL_LARGE_ERR_DEG     5.0f
+/* 丢步恢复 (>8° 大误差): 快速大力拉回 */
+#define CL_LARGE_ERR_DEG     8.0f
 #define CL_OUTPUT_MAX_HI     3.0f
 #define CL_COOLDOWN_HI_MS    100U
 
