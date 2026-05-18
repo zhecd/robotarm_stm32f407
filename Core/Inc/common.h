@@ -4,11 +4,11 @@
 #include <stdint.h>
 #include <math.h>
 
-/* ── 步进电机参数 (16细分, 步距角1.8°) ── */
-#define GEAR_RATIO          1.0f
-#define STEPS_PER_REV       3200.0f          /* 200步 × 16细分 */
-#define STEPS_PER_DEGREE    (STEPS_PER_REV / 360.0f)
-#define DEGREES_PER_STEP    (360.0f / STEPS_PER_REV)
+/* ── 步进电机参数 (16细分, 步距角1.8°, 减速比32:9) ── */
+#define GEAR_RATIO          (32.0f / 9.0f)
+#define STEPS_PER_REV       3200.0f          /* 200步 × 16细分 (电机轴) */
+#define STEPS_PER_DEGREE    (STEPS_PER_REV * GEAR_RATIO / 360.0f)
+#define DEGREES_PER_STEP    (360.0f / (STEPS_PER_REV * GEAR_RATIO))
 
 /* ── 角度工具 ── */
 
