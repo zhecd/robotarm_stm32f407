@@ -4,7 +4,7 @@
 #include "common.h"
 #include <stdio.h>
 
-#define HOMING_STEP_DELAY_US   300
+#define HOMING_STEP_DELAY_US   200
 #define HOMING_MAX_STEPS       8000
 
 /* 微秒级忙等待 (168MHz Cortex-M4, 粗略但够用) */
