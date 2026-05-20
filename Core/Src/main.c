@@ -155,7 +155,10 @@ int main(void)
 
   App_Teleop_Init();
 
-  App_Align_Coordinates(); // 传感器坐标系与理论步数坐标对�??
+  BSP_LED_SetState(LED_0, LED_ON);   /* 默认 GCode 模式, LED0 亮 */
+  BSP_LED_SetState(LED_1, LED_OFF);
+
+  App_Align_Coordinates();// 传感器坐标系与理论步数坐标对�??
   CL_Init();               // 初始化三�?? PID 闭环控制�??
 
 
@@ -164,9 +167,6 @@ int main(void)
 
   char rx_line[256];
   GCodeFrame_t gcode_frame;
-
-  LedState_t my_pattern[LED_COUNT] = {LED_OFF, LED_OFF, LED_ON, LED_OFF};
-  BSP_LED_SetAllStates(my_pattern);
 
   /* USER CODE END 2 */
 
@@ -418,6 +418,32 @@ void App_Static_Compensation(void)
         }
 
     }
+}
+
+/* PE2 按键模式切换: GCode(LED0) ↔ PS2遥控(LED1) */
+void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
+{
+    if (GPIO_Pin != KEY_MODE_Pin)
+        return;
+
+    static uint32_t last_tick = 0;
+    uint32_t now = HAL_GetTick();
+    if (now - last_tick < 50)
+        return;
+    last_tick = now;
+
+    if (Motor_Buffer_GetCount() > 0 || Motor_Core_IsRunning()) {
+        printf("Warning: Motors moving, cannot switch mode!\r\n");
+        return;
+    }
+
+    current_sys_mode = (current_sys_mode == SYS_MODE_GCODE) ? SYS_MODE_PS2 : SYS_MODE_GCODE;
+
+    BSP_LED_SetState(LED_0, (current_sys_mode == SYS_MODE_GCODE) ? LED_ON : LED_OFF);
+    BSP_LED_SetState(LED_1, (current_sys_mode == SYS_MODE_PS2)   ? LED_ON : LED_OFF);
+
+    printf("\r\n>>> MODE: [%s] <<<\r\n",
+           (current_sys_mode == SYS_MODE_GCODE) ? "G-CODE" : "PS2 TELEOP");
 }
 
 /* USER CODE END 4 */
