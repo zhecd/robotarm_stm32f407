@@ -48,31 +48,43 @@ target_link_directories(${CMAKE_PROJECT_NAME} PRIVATE
 # Add sources to executable
 target_sources(${CMAKE_PROJECT_NAME} PRIVATE
     # Add user sources here
-    Core/Src/bsp_led.c
-    Core/Src/bsp_stepper.c
-    Core/Src/gpio.c
     Core/Src/main.c
-    Core/Src/motor_core.c
-    Core/Src/robotGeometry.c
-    Core/Src/motion_planner.c
-    Core/Src/bsp_tmc2209.c
-    Core/Src/bsp_uart1.c
-    Core/Src/gcode_parser.c
-    Core/Src/cmd_executor.c
-    Core/Src/bsp_ps2.c
-    Core/Src/app_teleop.c
-    Core/Src/bsp_gripper.c
-    Core/Src/bsp_as5600.c
-    Core/Src/closed_loop.c
-    Core/Src/common.c
-    Core/Src/bsp_homing.c
+    Core/Src/gpio.c
 
+    # BSP layer
+    Core/Src/bsp/bsp_led.c
+    Core/Src/bsp/bsp_stepper.c
+    Core/Src/bsp/bsp_tmc2209.c
+    Core/Src/bsp/bsp_uart1.c
+    Core/Src/bsp/bsp_ps2.c
+    Core/Src/bsp/bsp_gripper.c
+    Core/Src/bsp/bsp_as5600.c
+    Core/Src/bsp/bsp_homing.c
+
+    # Control layer
+    Core/Src/control/ctrl_motion_engine.c
+    Core/Src/control/ctrl_kinematics.c
+    Core/Src/control/ctrl_planner.c
+    Core/Src/control/ctrl_closed_loop.c
+    Core/Src/control/ctrl_compensation.c
+
+    # App layer
+    Core/Src/app/app_gcode_parser.c
+    Core/Src/app/app_gcode_exec.c
+    Core/Src/app/app_teleop.c
+    Core/Src/app/app_calibration.c
+
+    # Common
+    Core/Src/common/common.c
 )
 
 # Add include paths
 target_include_directories(${CMAKE_PROJECT_NAME} PRIVATE
-    # Add user defined include paths
     Core/Inc
+    Core/Inc/bsp
+    Core/Inc/control
+    Core/Inc/app
+    Core/Inc/common
 )
 
 # Add project symbols (macros)

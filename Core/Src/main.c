@@ -2,7 +2,7 @@
 /**
   ******************************************************************************
   * @file           : main.c
-  * @brief          : Main program body
+  * @brief          : Main program body / 主程序
   ******************************************************************************
   * @attention
   *
@@ -26,23 +26,29 @@
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 
-#include "bsp_led.h"
-#include "bsp_stepper.h"
-#include "bsp_tmc2209.h"
-#include "motor_core.h"
-#include "motion_planner.h"
-#include "gcode_parser.h"
-#include "cmd_executor.h"
-#include "bsp_uart1.h"
+#include "bsp/bsp_led.h"
+#include "bsp/bsp_stepper.h"
+#include "bsp/bsp_tmc2209.h"
+#include "bsp/bsp_uart1.h"
+#include "bsp/bsp_ps2.h"
+#include "bsp/bsp_gripper.h"
+#include "bsp/bsp_as5600.h"
+#include "bsp/bsp_homing.h"
+
+#include "control/ctrl_motion_engine.h"
+#include "control/ctrl_planner.h"
+#include "control/ctrl_closed_loop.h"
+#include "control/ctrl_compensation.h"
+
+#include "app/app_teleop.h"
+#include "app/app_gcode_parser.h"
+#include "app/app_gcode_exec.h"
+#include "app/app_calibration.h"
+
+#include "common/common.h"
+#include "common/robot_config.h"
+
 #include <stdio.h>
-#include <math.h>
-#include "bsp_ps2.h"
-#include <stdlib.h>
-#include "app_teleop.h"
-#include "bsp_gripper.h"
-#include "bsp_as5600.h"
-#include "closed_loop.h"
-#include "bsp_homing.h"
 
 /* USER CODE END Includes */
 
@@ -71,13 +77,69 @@
 void SystemClock_Config(void);
 /* USER CODE BEGIN PFP */
 
-void App_Align_Coordinates(void);
-void App_Static_Compensation(void);
-
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
+
+/** 1 Hz encoder status reporting (G-code mode only). */
+static void Task_EncoderReport(void)
+{
+    static uint32_t last_tick = 0;
+    uint32_t now = HAL_GetTick();
+    if (now - last_tick < 1000) return;
+    last_tick = now;
+
+    float cur[CL_AXIS_COUNT];
+    for (int i = 0; i < CL_AXIS_COUNT; i++) {
+        cur[i] = 0.0f;
+        if (Ctrl_ClosedLoop_IsAxisEnabled(i)) {
+            AS5600_Dev_t *enc = Ctrl_ClosedLoop_GetEncoder(i);
+            cur[i] = (BSP_AS5600_Update(enc) == ERR_OK) ? enc->angle_deg : 0.0f;
+        }
+    }
+
+    static float  last[CL_AXIS_COUNT];
+    static bool   first = true;
+    float diff = fabsf(cur[0] - last[0])
+               + fabsf(cur[1] - last[1])
+               + fabsf(cur[2] - last[2]);
+
+    if (first || diff > 1.0f) {
+        first = false;
+        BSP_AS5600_PrintStatus();
+        for (int i = 0; i < CL_AXIS_COUNT; i++) last[i] = cur[i];
+    }
+}
+
+/** 50 Hz PID closed-loop position hold (G-code mode only). */
+static void Task_ClosedLoop(void)
+{
+    static uint32_t last_cl = 0;
+    uint32_t now = HAL_GetTick();
+    if (now - last_cl < 20) return;
+    last_cl = now;
+    Ctrl_ClosedLoop_Update();
+}
+
+/** G-code receive + execute pipeline (G-code mode only). */
+static void Task_GCode(void)
+{
+    char          line[256];
+    GCodeFrame_t  frame;
+
+    if (!BSP_UART1_ReadLine(line, sizeof(line))) return;
+
+    if (App_GCodeParser_ParseLine(line, &frame)) {
+        App_GCodeExec_Run(&frame);
+        Ctrl_Compensation_Execute();
+        HAL_Delay(100);
+        Ctrl_ClosedLoop_SyncTarget();
+        printf("ok\r\n");
+    } else {
+        printf("error: Parse failed!\r\n");
+    }
+}
 
 /* USER CODE END 0 */
 
@@ -95,7 +157,7 @@ int main(void)
   /* MCU Configuration--------------------------------------------------------*/
 
   /* Reset of all peripherals, Initializes the Flash interface and the Systick. */
-  HAL_Init();
+   HAL_Init();
 
   /* USER CODE BEGIN Init */
 
@@ -118,55 +180,54 @@ int main(void)
   MX_I2C2_Init();
   MX_I2C3_Init();
   /* USER CODE BEGIN 2 */
-  BSP_LED_Init(); // 初始化LED
-  BSP_Stepper_Init(); // 初始化步进电机驱动，设置默认状�??
-  BSP_UART1_Init(); // 初始�??????? UART1 接收 G-code 指令
-  BSP_UART1_SendString("System Boot Up OK!\r\n");
-  BSP_PS2_Init(); // 初始�???? PS2 手柄接口
-  extern TIM_HandleTypeDef htim2; 
-  BSP_Gripper_Init(&hgripper, &htim2, TIM_CHANNEL_2); // 绑定 PA1 (TIM2_CH2)
-  BSP_AS5600_Init(); // 初始化三个AS5600编码器，记录上电零点
 
-   // 延时等待底层稳定
+  /* ── BSP initialization ── */
+  BSP_LED_Init();
+  BSP_Stepper_Init();
+  BSP_UART1_Init();
+  BSP_UART1_SendString("System Boot Up OK!\r\n");
+  BSP_PS2_Init();
+
+  extern TIM_HandleTypeDef htim2;
+  BSP_Gripper_Init(BSP_Gripper_GetHandle(), &htim2, TIM_CHANNEL_2);
+
+  BSP_AS5600_Init();
+
   HAL_Delay(100);
   printf("\r\n================================\r\n");
   printf("System Boot Up OK! Gcode Mode\r\n");
   printf("================================\r\n");
 
-  BSP_Stepper_Enable(&Motor_M1, true);// 启用电机1
-  BSP_Stepper_Enable(&Motor_M2, true);// 启用电机2
-  BSP_Stepper_Enable(&Motor_M3, true);// 启用电机3
+  /* ── Motor drivers ── */
+  BSP_Stepper_Enable(BSP_Stepper_GetM1(), true);
+  BSP_Stepper_Enable(BSP_Stepper_GetM2(), true);
+  BSP_Stepper_Enable(BSP_Stepper_GetM3(), true);
 
-  extern UART_HandleTypeDef huart6; // 确保声明了你的串口句�?????????
-  // �?????????0 (底座)：需要最大的力，16细分
-  BSP_TMC2209_ConfigNode(&huart6, 0,  16, 28, 15); 
+  extern UART_HandleTypeDef huart6;
+  BSP_TMC2209_ConfigNode(&huart6, 0, TMC_DEFAULT_MICROSTEPS, TMC_DEFAULT_IRUN, TMC_DEFAULT_IHOLD);
+  BSP_TMC2209_ConfigNode(&huart6, 1, TMC_DEFAULT_MICROSTEPS, TMC_DEFAULT_IRUN, TMC_DEFAULT_IHOLD);
+  BSP_TMC2209_ConfigNode(&huart6, 2, TMC_DEFAULT_MICROSTEPS, TMC_DEFAULT_IRUN, TMC_DEFAULT_IHOLD);
 
-  // �?????????1 (大臂)：中等力�?????????16细分
-  BSP_TMC2209_ConfigNode(&huart6, 1, 16, 28, 15); 
+  /* ── Homing ── */
+  BSP_Homing_Execute();
 
-  // �?????????2 (小臂)：负载极小，但为了极致顺滑，可以�????????? 32 细分，小电流
-  BSP_TMC2209_ConfigNode(&huart6, 2, 16, 28, 15);
+  /* ── Control layer initialization ── */
+  Ctrl_MotionEngine_Init();
+  Ctrl_Planner_Init(0.0f, 185.0f, 240.0f);
+  App_GCodeExec_Init(0.0f, 185.0f, 240.0f);
 
-  BSP_Homing_Execute();  // 上电回零: M1/M2 CW, M3 CCW 找限位开关
-
-  Motor_Core_Init(); //初始化环形缓冲区
-  Motion_Planner_Init(0.0f, 185.0f, 240.0f); // 设置初始位置�?????????(0, 185, 240)，即机械臂的默认位置
-  Cmd_Executor_Init(0.0f, 185.0f, 240.0f);  // 初始化执行器
-
+  /* ── Application layer ── */
   App_Teleop_Init();
+  Ctrl_ClosedLoop_Init();
+  App_Calibration_Execute();
 
-  BSP_LED_SetState(LED_0, LED_ON);   /* 默认 GCode 模式, LED0 亮 */
+  /* ── Mode indicator LED ── */
+  BSP_LED_SetState(LED_0, LED_ON);
   BSP_LED_SetState(LED_1, LED_OFF);
 
-  App_Align_Coordinates();// 传感器坐标系与理论步数坐标对�??
-  CL_Init();               // 初始化三�?? PID 闭环控制�??
-
-
-  extern TIM_HandleTypeDef htim6; 
-  HAL_TIM_Base_Start_IT(&htim6);// 启动定时�????????6的中断，�????????始处理运动帧
-
-  char rx_line[256];
-  GCodeFrame_t gcode_frame;
+  /* ── Start motion engine interrupt (TIM6, 50 kHz) ── */
+  extern TIM_HandleTypeDef htim6;
+  HAL_TIM_Base_Start_IT(&htim6);
 
   /* USER CODE END 2 */
 
@@ -174,65 +235,24 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-      /* 1Hz 编码器数据上�? (仅数值变化时输出) */
-      {
-          static uint32_t last_tick = 0;
-          uint32_t now = HAL_GetTick();
-          if (now - last_tick >= 1000) {
-              last_tick = now;
-              float cur[CL_AXIS_COUNT];
-              for (int i = 0; i < CL_AXIS_COUNT; i++)
-                  cur[i] = (BSP_AS5600_Update(g_axis[i].encoder))
-                         ? g_axis[i].encoder->angle_deg : 0.0f;
-              static float last[CL_AXIS_COUNT];
-              static bool first = true;
-              float diff = fabsf(cur[0] - last[0])
-                         + fabsf(cur[1] - last[1])
-                         + fabsf(cur[2] - last[2]);
-              if (first || diff > 1.0f) {
-                  first = false;
-                  BSP_AS5600_PrintStatus();
-                  for (int i = 0; i < CL_AXIS_COUNT; i++) last[i] = cur[i];
-              }
-          }
-      }
+      SystemMode_t mode = App_Teleop_GetMode();
 
-      /* 50Hz PID 闭环位置保持 (�? G-code 模式) */
-      if (current_sys_mode == SYS_MODE_GCODE)
-      {
-          static uint32_t last_cl = 0;
-          uint32_t now = HAL_GetTick();
-          if (now - last_cl >= 20) {
-              last_cl = now;
-              CL_Update();
-          }
+      if (mode == SYS_MODE_GCODE) {
+          Task_EncoderReport();
+          Task_ClosedLoop();
       }
 
       App_Teleop_Task();
-      // 2. 运行 G代码 接收任务
-      // (未来这部分也可以封装�???? App_Gcode_Task())
-      if (current_sys_mode == SYS_MODE_GCODE)
-      {
-          if (BSP_UART1_ReadLine(rx_line, sizeof(rx_line))) 
-          {
-              if (GCode_ParseLine(rx_line, &gcode_frame)) {
-                  Cmd_Executor_Run(&gcode_frame);
-                  App_Static_Compensation();
-                  HAL_Delay(100);  /* 等机械臂物理稳定后再�? PID 接管 */
-                  CL_SyncTarget();
-                  printf("ok\r\n");
-              } else {
-                  printf("error: Parse failed!\r\n");
-              }
-          }
+
+      if (mode == SYS_MODE_GCODE) {
+          Task_GCode();
       }
-  
+
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
   }
 
-  
   /* USER CODE END 3 */
 }
 
@@ -284,143 +304,7 @@ void SystemClock_Config(void)
 
 /* USER CODE BEGIN 4 */
 
-/* 坐标对齐：将传感器物理零位与理论步数零位同步 */
-void App_Align_Coordinates(void)
-{
-    Motor_Core_ResetTheorySteps();
-
-    bool ok1 = BSP_AS5600_SetZero(&Encoder_M1);
-    bool ok2 = BSP_AS5600_SetZero(&Encoder_M2);
-    bool ok3 = BSP_AS5600_SetZero(&Encoder_M3);
-
-    printf("[Encoder] M1(I2C1):%s M2(I2C2):%s M3(I2C3):%s\r\n",
-           ok1 ? "OK" : "FAIL",
-           ok2 ? "OK" : "FAIL",
-           ok3 ? "OK" : "FAIL");
-
-    /* 编码器标定失败则禁用对应 PID �?, 防止用假数据反复修正 */
-    g_axis[0].enabled = ok1;
-    g_axis[1].enabled = ok2;
-    g_axis[2].enabled = ok3;
-}
-
-/*
- * 静�?�位置误差补偿：持续迭代直到编码器收敛到理论目标位置�??
- *
- * 架构保证（关键）�??
- *   g_theory_steps 只由 MotionPlanner Push 帧时累加，补偿帧直接 Push 不经�?? Planner�??
- *   因此 theory 天然只代�??"规划层命令�??"，不会被补偿运动污染�??
- *   补偿循环中取�??�?? theory 快照作为固定目标，只追踪编码器是否到达该目标�??
- */
-#define COMP_DEADBAND_DEG     1.0f    /* 死区阈�?? (�??) */
-#define COMP_SPEED_DIV        50      /* 补偿速度: TIM6=50kHz, DIV=50 �?? 1000�??/�?? */
-#define COMP_MIN_TICKS        100U    /* �??�?? tick �?? (2ms) */
-#define COMP_WATCHDOG_ROUNDS  30      /* 安全看门�?? */
-
-void App_Static_Compensation(void)
-{
-    /* 等待规划层运动全部完�?? */
-    while (Motor_Core_IsRunning() || Motor_Buffer_GetCount() > 0) {}
-    HAL_Delay(50);
-
-    /* 快照：取�??次理论步数作为本轮补偿的固定目标（后续不再重读） */
-    int32_t target_m1, target_m2, target_m3;
-    Motor_Core_GetTheorySteps(&target_m1, &target_m2, &target_m3);
-    /* 理论(微步) �?? 电机轴角�??: ×DEGREES_PER_STEP (0.1125°/�??) */
-    float target_deg_m1 = StepsToDeg(target_m1);
-    float target_deg_m2 = StepsToDeg(target_m2);
-    float target_deg_m3 = StepsToDeg(target_m3);
-
-    /* 诊断：两侧都换算为微步显示，避免 %%f 浮点打印不工�?? */
-    BSP_AS5600_Update(&Encoder_M1);
-    BSP_AS5600_Update(&Encoder_M2);
-    BSP_AS5600_Update(&Encoder_M3);
-
-    /* 持久化编码器卡死标记：仅�?? theory 变化（新规划器运动）时复�?? */
-    static int32_t s_last_theory_m1 = -1, s_last_theory_m2 = -1, s_last_theory_m3 = -1;
-    static bool s_stuck_m1 = false, s_stuck_m2 = false, s_stuck_m3 = false;
-    if (target_m1 != s_last_theory_m1 || target_m2 != s_last_theory_m2 || target_m3 != s_last_theory_m3) {
-        s_stuck_m1 = s_stuck_m2 = s_stuck_m3 = false;  /* 新运�?? �?? 复位卡死标记 */
-        s_last_theory_m1 = target_m1; s_last_theory_m2 = target_m2; s_last_theory_m3 = target_m3;
-    }
-    bool skip_m1 = s_stuck_m1, skip_m2 = s_stuck_m2, skip_m3 = s_stuck_m3;
-
-    float prev_err_abs_m1 = 1e9f, prev_err_abs_m2 = 1e9f, prev_err_abs_m3 = 1e9f;
-
-    for (int iter = 0; ; iter++)
-    {
-        if (!skip_m1 && !BSP_AS5600_Update(&Encoder_M1)) { skip_m1 = s_stuck_m1 = true; }
-        if (!skip_m2 && !BSP_AS5600_Update(&Encoder_M2)) { skip_m2 = s_stuck_m2 = true; }
-        if (!skip_m3 && !BSP_AS5600_Update(&Encoder_M3)) { skip_m3 = s_stuck_m3 = true; }
-
-        float err_m1 = AngleWrap180(target_deg_m1 - Encoder_M1.angle_deg);
-        float err_m2 = AngleWrap180(target_deg_m2 - Encoder_M2.angle_deg);
-        float err_m3 = AngleWrap180(target_deg_m3 - Encoder_M3.angle_deg);
-
-        float abs_err1 = fabsf(err_m1), abs_err2 = fabsf(err_m2), abs_err3 = fabsf(err_m3);
-
-        /* 死区�??查（跳过已标记为卡死的轴�?? */
-        bool m1_ok = skip_m1 || (abs_err1 <= COMP_DEADBAND_DEG);
-        bool m2_ok = skip_m2 || (abs_err2 <= COMP_DEADBAND_DEG);
-        bool m3_ok = skip_m3 || (abs_err3 <= COMP_DEADBAND_DEG);
-        if (m1_ok && m2_ok && m3_ok) return;
-
-        /* 逐轴�??测编码器是否无响应（误差未缩小） */
-        if (!skip_m1 && iter > 0 && abs_err1 >= prev_err_abs_m1) {
-            skip_m1 = s_stuck_m1 = true;
-        }
-        if (!skip_m2 && iter > 0 && abs_err2 >= prev_err_abs_m2) {
-            skip_m2 = s_stuck_m2 = true;
-        }
-        if (!skip_m3 && iter > 0 && abs_err3 >= prev_err_abs_m3) {
-            skip_m3 = s_stuck_m3 = true;
-        }
-        /* 如果�??有非零目标轴都被跳过，�??�?? */
-        if ((target_m1 == 0 || skip_m1) && (target_m2 == 0 || skip_m2) && (target_m3 == 0 || skip_m3)) {
-            return;
-        }
-
-        prev_err_abs_m1 = abs_err1;
-        prev_err_abs_m2 = abs_err2;
-        prev_err_abs_m3 = abs_err3;
-
-        /* 全局发散�??测（仅对未被跳过的轴�?? */
-        float err_sum = (skip_m1 ? 0.0f : abs_err1) +
-                        (skip_m2 ? 0.0f : abs_err2) +
-                        (skip_m3 ? 0.0f : abs_err3);
-        if (iter > 0 && err_sum == 0.0f) return;
-        if (iter >= COMP_WATCHDOG_ROUNDS) {
-            return;
-        }
-
-        int32_t comp_m1 = 0, comp_m2 = 0, comp_m3 = 0;
-        if (!skip_m1 && abs_err1 > COMP_DEADBAND_DEG)
-            comp_m1 = DegToSteps(err_m1);
-        if (!skip_m2 && abs_err2 > COMP_DEADBAND_DEG)
-            comp_m2 = DegToSteps(err_m2);
-        if (!skip_m3 && abs_err3 > COMP_DEADBAND_DEG)
-            comp_m3 = DegToSteps(err_m3);
-
-        /* 无有效补偿量则跳过推�?? */
-        if (comp_m1 != 0 || comp_m2 != 0 || comp_m3 != 0) {
-            MotionFrame_t comp_frame;
-            comp_frame.delta_m1 = comp_m1;
-            comp_frame.delta_m2 = comp_m2;
-            comp_frame.delta_m3 = comp_m3;
-
-            comp_frame.total_ticks = Common_MaxAbs3(comp_m1, comp_m2, comp_m3) * COMP_SPEED_DIV;
-            if (comp_frame.total_ticks < COMP_MIN_TICKS)
-                comp_frame.total_ticks = COMP_MIN_TICKS;
-
-            Motor_Buffer_Push(&comp_frame);
-            while (Motor_Core_IsRunning() || Motor_Buffer_GetCount() > 0) {}
-            HAL_Delay(30);  /* 补偿后短暂消�?? */
-        }
-
-    }
-}
-
-/* PE2 按键模式切换: GCode(LED0) ↔ PS2遥控(LED1) */
+/* PE2 key: mode switch GCode(LED0) <-> PS2 teleop(LED1) */
 void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
 {
     if (GPIO_Pin != KEY_MODE_Pin)
@@ -432,18 +316,19 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
         return;
     last_tick = now;
 
-    if (Motor_Buffer_GetCount() > 0 || Motor_Core_IsRunning()) {
+    if (Ctrl_MotionEngine_IsRunning()) {
         printf("Warning: Motors moving, cannot switch mode!\r\n");
         return;
     }
 
-    current_sys_mode = (current_sys_mode == SYS_MODE_GCODE) ? SYS_MODE_PS2 : SYS_MODE_GCODE;
+    App_Teleop_ToggleMode();
 
-    BSP_LED_SetState(LED_0, (current_sys_mode == SYS_MODE_GCODE) ? LED_ON : LED_OFF);
-    BSP_LED_SetState(LED_1, (current_sys_mode == SYS_MODE_PS2)   ? LED_ON : LED_OFF);
+    SystemMode_t mode = App_Teleop_GetMode();
+    BSP_LED_SetState(LED_0, (mode == SYS_MODE_GCODE) ? LED_ON : LED_OFF);
+    BSP_LED_SetState(LED_1, (mode == SYS_MODE_PS2)   ? LED_ON : LED_OFF);
 
     printf("\r\n>>> MODE: [%s] <<<\r\n",
-           (current_sys_mode == SYS_MODE_GCODE) ? "G-CODE" : "PS2 TELEOP");
+           (mode == SYS_MODE_GCODE) ? "G-CODE" : "PS2 TELEOP");
 }
 
 /* USER CODE END 4 */
