@@ -270,11 +270,11 @@ extern "C" {
 #endif
 
 #ifndef GRIPPER_ANGLE_OPEN
-#define GRIPPER_ANGLE_OPEN      50.0f        /* Open angle (deg) / 张开角度 */
+#define GRIPPER_ANGLE_OPEN      72.0f        /* Close angle (deg) / 合爪角度 */
 #endif
 
 #ifndef GRIPPER_ANGLE_CLOSE
-#define GRIPPER_ANGLE_CLOSE     130.0f       /* Close angle (deg) / 闭合角度 */
+#define GRIPPER_ANGLE_CLOSE     100.0f       /* Open angle (deg) / 张开角度 */
 #endif
 
 /* ═══════════════════════════════════════════════════════════════════════════

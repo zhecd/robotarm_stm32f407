@@ -38,7 +38,7 @@ void BSP_Gripper_SetAngle(Gripper_Dev_t *grp, float angle)
 void BSP_Gripper_Open(Gripper_Dev_t *grp)
 {
     if (grp->state != GRIPPER_STATE_OPEN) {
-        BSP_Gripper_SetAngle(grp, GRIPPER_ANGLE_OPEN);
+        BSP_Gripper_SetAngle(grp, GRIPPER_ANGLE_CLOSE);
         grp->state = GRIPPER_STATE_OPEN;
     }
 }
@@ -46,7 +46,7 @@ void BSP_Gripper_Open(Gripper_Dev_t *grp)
 void BSP_Gripper_Close(Gripper_Dev_t *grp)
 {
     if (grp->state != GRIPPER_STATE_CLOSE) {
-        BSP_Gripper_SetAngle(grp, GRIPPER_ANGLE_CLOSE);
+        BSP_Gripper_SetAngle(grp, GRIPPER_ANGLE_OPEN);
         grp->state = GRIPPER_STATE_CLOSE;
     }
 }
