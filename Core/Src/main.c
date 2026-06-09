@@ -204,9 +204,9 @@ int main(void)
   BSP_Stepper_Enable(BSP_Stepper_GetM3(), true);
 
   extern UART_HandleTypeDef huart6;
-  BSP_TMC2209_ConfigNode(&huart6, 0, TMC_DEFAULT_MICROSTEPS, TMC_DEFAULT_IRUN, TMC_DEFAULT_IHOLD);
-  BSP_TMC2209_ConfigNode(&huart6, 1, TMC_DEFAULT_MICROSTEPS, TMC_DEFAULT_IRUN, TMC_DEFAULT_IHOLD);
-  BSP_TMC2209_ConfigNode(&huart6, 2, TMC_DEFAULT_MICROSTEPS, TMC_DEFAULT_IRUN, TMC_DEFAULT_IHOLD);
+  BSP_TMC2209_ConfigNode(&huart6, 0, 16, TMC_DEFAULT_IRUN, TMC_DEFAULT_IHOLD);  // M1: 16细分
+  BSP_TMC2209_ConfigNode(&huart6, 1, 16, TMC_DEFAULT_IRUN, TMC_DEFAULT_IHOLD);  // M2: 16细分
+  BSP_TMC2209_ConfigNode(&huart6, 2, 16, TMC_DEFAULT_IRUN, TMC_DEFAULT_IHOLD);  // M3: 16细分
 
   /* ── Homing ── */
   BSP_Homing_Execute();

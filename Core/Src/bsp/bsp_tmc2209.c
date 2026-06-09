@@ -6,6 +6,7 @@
 
 #include "bsp/bsp_tmc2209.h"
 #include "robot_config.h"
+#include <stdio.h>
 
 #define TMC2209_REG_GCONF             0x00U
 #define TMC2209_REG_IHOLD_IRUN        0x10U
@@ -75,7 +76,10 @@ static void WriteReg(UART_HandleTypeDef *huart, uint8_t addr, uint8_t reg, uint3
     packet[6] = (uint8_t)( data        & 0xFFU);
     packet[7] = CalcCRC8(packet, 7U);
 
-    HAL_UART_Transmit(huart, packet, TMC2209_WRITE_PACKET_SIZE, TMC2209_UART_TX_TIMEOUT_MS);
+    HAL_StatusTypeDef status = HAL_UART_Transmit(huart, packet, TMC2209_WRITE_PACKET_SIZE, TMC2209_UART_TX_TIMEOUT_MS);
+    if (status != HAL_OK) {
+        printf("[TMC2209] TX fail: addr=%d reg=0x%02X err=%d\r\n", addr, reg, status);
+    }
     __HAL_UART_CLEAR_OREFLAG(huart);
     (void)huart->Instance->DR;
     HAL_Delay(TMC2209_WRITE_SETTLE_MS);
