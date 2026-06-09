@@ -15,7 +15,7 @@ void BSP_Gripper_Init(Gripper_Dev_t *grp, TIM_HandleTypeDef *htim, uint32_t chan
     grp->htim    = htim;
     grp->channel = channel;
     grp->state   = GRIPPER_STATE_UNKNOWN;
-    BSP_Gripper_Open(grp);      /* Default to open / 默认张开 */
+    BSP_Gripper_Close(grp);     /* Default to closed / 默认闭合 */
 }
 
 void BSP_Gripper_SetAngle(Gripper_Dev_t *grp, float angle)
