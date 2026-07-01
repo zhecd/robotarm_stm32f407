@@ -13,9 +13,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-static SystemMode_t s_mode          = SYS_MODE_GCODE;
-static uint32_t     s_last_poll_ms  = 0U;
-static uint16_t     s_last_buttons  = 0xFFFFU;
+static SystemMode_t s_mode           = SYS_MODE_GCODE;
+static uint32_t     s_last_poll_ms   = 0U;
+static uint16_t     s_last_buttons   = 0xFFFFU;
 static bool         s_fault_reported = false;
 
 SystemMode_t App_Teleop_GetMode(void)        { return s_mode; }

@@ -112,7 +112,7 @@ extern "C" {
 #endif
 
 #ifndef TELEOP_FRAME_MS
-#define TELEOP_FRAME_MS         5U           /* Teleop frame duration (ms) / 遥控帧时长 */
+#define TELEOP_FRAME_MS         10U          /* Teleop frame duration (ms), must match PS2 poll / 遥控帧时长, 需与PS2轮询匹配 */
 #endif
 
 /* ═══════════════════════════════════════════════════════════════════════════
@@ -246,7 +246,7 @@ extern "C" {
  * ═══════════════════════════════════════════════════════════════════════════ */
 
 #ifndef PS2_POLL_INTERVAL_MS
-#define PS2_POLL_INTERVAL_MS    5U           /* Polling interval (ms) / 轮询间隔 */
+#define PS2_POLL_INTERVAL_MS    10U          /* Polling interval (ms) / 轮询间隔 */
 #endif
 
 #ifndef JOYSTICK_DEADZONE

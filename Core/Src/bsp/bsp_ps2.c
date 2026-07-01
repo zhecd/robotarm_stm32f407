@@ -11,10 +11,12 @@
 #define PS2_MODE_DIGITAL            0x41U
 #define PS2_MODE_ANALOG_RED         0x73U
 #define PS2_MODE_ANALOG_PRESSURE    0x79U
-#define PS2_REINIT_RETRY_THRESHOLD  3U
+#define PS2_REINIT_RETRY_THRESHOLD  10U
+#define PS2_REINIT_COOLDOWN_MS      500U
 
 static bool    s_analog_mode        = false;
 static uint8_t s_invalid_mode_count = 0U;
+static uint32_t s_last_reinit_ms    = 0U;
 
 /* ── Low-level GPIO helpers (BSRR for atomic access) / 底层 GPIO (BSRR 原子操作) ── */
 
@@ -74,10 +76,12 @@ static uint8_t TransferByte(uint8_t tx)
 
 static void SendCommand(const uint8_t *cmd, uint8_t len)
 {
+    __disable_irq();
     CS_Write(GPIO_PIN_RESET);
     PS2_Delay();
     for (uint8_t i = 0U; i < len; i++) { TransferByte(cmd[i]); }
     CS_Write(GPIO_PIN_SET);
+    __enable_irq();
     HAL_Delay(16U);
 }
 
@@ -115,6 +119,12 @@ bool BSP_PS2_ReadData(PS2_Data_t *data)
     if (!data) return false;
 
     uint8_t raw[9] = {0};
+    bool    need_reinit = false;
+
+    /* Critical section: prevent TIM6 (50 kHz) from corrupting bit-bang timing.
+       CS-low ≈ 100 µs → ~5 missed TIM6 ticks. */
+    __disable_irq();
+
     CS_Write(GPIO_PIN_RESET);
     PS2_Delay();
 
@@ -125,20 +135,30 @@ bool BSP_PS2_ReadData(PS2_Data_t *data)
     /* Frame header check / 帧头校验 */
     if (raw[2] != PS2_FRAME_HEADER_OK) {
         CS_Write(GPIO_PIN_SET);
+        __enable_irq();
         s_analog_mode = false;
         return false;
     }
 
-    /* Mode check + auto reinit / 模式检查 + 自动重新初始化 */
+    /* Mode check + deferred auto reinit / 模式检查 + 延迟自动重新初始化 */
     if (!IsSupportedAnalogMode(raw[1])) {
         CS_Write(GPIO_PIN_SET);
+        __enable_irq();
         s_analog_mode = false;
         if (raw[1] == PS2_MODE_DIGITAL) {
             s_invalid_mode_count++;
             if (s_invalid_mode_count >= PS2_REINIT_RETRY_THRESHOLD)
-                BSP_PS2_Init();
+                need_reinit = true;
         } else {
             s_invalid_mode_count = 0U;
+        }
+        if (need_reinit) {
+            uint32_t now = HAL_GetTick();
+            if (now - s_last_reinit_ms >= PS2_REINIT_COOLDOWN_MS) {
+                s_last_reinit_ms = now;
+                s_invalid_mode_count = 0U;
+                BSP_PS2_Init();
+            }
         }
         return false;
     }
@@ -146,7 +166,6 @@ bool BSP_PS2_ReadData(PS2_Data_t *data)
     s_analog_mode        = true;
     s_invalid_mode_count = 0U;
 
-    /* Read remaining data bytes / 读取剩余数据字节 */
     raw[3] = TransferByte(0x00U);
     raw[4] = TransferByte(0x00U);
     raw[5] = TransferByte(0x00U);
@@ -155,6 +174,7 @@ bool BSP_PS2_ReadData(PS2_Data_t *data)
     raw[8] = TransferByte(0x00U);
 
     CS_Write(GPIO_PIN_SET);
+    __enable_irq();
 
     data->buttons = (uint16_t)((raw[3] << 8) | raw[4]);
     data->RX = raw[5];
