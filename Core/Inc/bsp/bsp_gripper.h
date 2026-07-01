@@ -28,6 +28,7 @@ typedef struct {
     uint32_t           channel;     /* Timer channel / 定时器通道 */
     float              cur_angle;   /* Current angle (deg) / 当前角度 */
     GripperState_t     state;       /* Current state / 当前状态 */
+    uint32_t           hold_start;  /* Last angle-change tick for auto-off */
 } Gripper_Dev_t;
 
 void BSP_Gripper_Init(Gripper_Dev_t *grp, TIM_HandleTypeDef *htim, uint32_t channel);
@@ -35,6 +36,7 @@ void BSP_Gripper_SetAngle(Gripper_Dev_t *grp, float angle);
 void BSP_Gripper_Open(Gripper_Dev_t *grp);
 void BSP_Gripper_Close(Gripper_Dev_t *grp);
 void BSP_Gripper_Stop(Gripper_Dev_t *grp);
+void BSP_Gripper_IdleStop(Gripper_Dev_t *grp);
 
 Gripper_Dev_t *BSP_Gripper_GetHandle(void);
 

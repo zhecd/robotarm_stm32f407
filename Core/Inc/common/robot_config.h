@@ -277,6 +277,11 @@ extern "C" {
 #define GRIPPER_ANGLE_CLOSE     100.0f       /* Open angle (deg) / 张开角度 */
 #endif
 
+#ifndef GRIPPER_HOLD_MS
+#define GRIPPER_HOLD_MS         600U         /* PWM hold time before auto-off (ms) / PWM保持时间后自动关闭 */
+#endif
+
+
 /* ═══════════════════════════════════════════════════════════════════════════
  * TMC2209 Driver / TMC2209 驱动
  * ═══════════════════════════════════════════════════════════════════════════ */

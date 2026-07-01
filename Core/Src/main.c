@@ -243,6 +243,7 @@ int main(void)
       }
 
       App_Teleop_Task();
+      BSP_Gripper_IdleStop(BSP_Gripper_GetHandle());
 
       if (mode == SYS_MODE_GCODE) {
           Task_GCode();
