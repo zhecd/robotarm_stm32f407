@@ -152,7 +152,7 @@ extern "C" {
 #endif
 
 #ifndef CL_SPEED_DIV
-#define CL_SPEED_DIV            400U         /* Correction speed divisor / 修正速度除数 */
+#define CL_SPEED_DIV            200U         /* Correction speed divisor / 修正速度除数 */
 #endif
 
 #ifndef CL_EMA_ALPHA
@@ -174,7 +174,7 @@ extern "C" {
 #endif
 
 #ifndef CL_OUTPUT_MAX_HI
-#define CL_OUTPUT_MAX_HI        2.0f         /* Max output for large error (deg) / 大误差最大输出 */
+#define CL_OUTPUT_MAX_HI        4.0f         /* Max output for large error (deg) / 大误差最大输出 */
 #endif
 
 #ifndef CL_COOLDOWN_HI_MS
