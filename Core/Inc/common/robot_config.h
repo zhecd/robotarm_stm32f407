@@ -254,7 +254,7 @@ extern "C" {
 #endif
 
 #ifndef TELEOP_MAX_STEP_MM
-#define TELEOP_MAX_STEP_MM      0.45f        /* Max step per teleop frame (mm) / 每遥控帧最大步长 */
+#define TELEOP_MAX_STEP_MM      0.9f         /* Max step per teleop frame (mm) / 每遥控帧最大步长 */
 #endif
 
 /* ═══════════════════════════════════════════════════════════════════════════
