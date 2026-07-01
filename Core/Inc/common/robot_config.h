@@ -218,11 +218,11 @@ extern "C" {
 #endif
 
 #ifndef HOMING_BACKOFF_M2_DEG
-#define HOMING_BACKOFF_M2_DEG   25.0f        /* M2 backoff angle (deg) — joint / M2 回退角度 — 关节 */
+#define HOMING_BACKOFF_M2_DEG   31.0f        /* M2 backoff angle (deg) — joint / M2 回退角度 — 关节 */
 #endif
 
 #ifndef HOMING_BACKOFF_M3_DEG
-#define HOMING_BACKOFF_M3_DEG   10.0f        /* M3 backoff angle (deg) — joint / M3 回退角度 — 关节 */
+#define HOMING_BACKOFF_M3_DEG   5.0f        /* M3 backoff angle (deg) — joint / M3 回退角度 — 关节 */
 #endif
 
 /* ═══════════════════════════════════════════════════════════════════════════
