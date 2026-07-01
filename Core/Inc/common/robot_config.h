@@ -120,23 +120,23 @@ extern "C" {
  * ═══════════════════════════════════════════════════════════════════════════ */
 
 #ifndef CL_KP
-#define CL_KP                   0.25f        /* Proportional gain / 比例增益 */
+#define CL_KP                   0.12f        /* Proportional gain / 比例增益 */
 #endif
 
 #ifndef CL_KI
-#define CL_KI                   0.05f        /* Integral gain / 积分增益 */
+#define CL_KI                   0.03f        /* Integral gain / 积分增益 */
 #endif
 
 #ifndef CL_KD
-#define CL_KD                   0.08f        /* Derivative gain / 微分增益 */
+#define CL_KD                   0.0f         /* Derivative gain (off — amplifies encoder noise) / 微分增益 (关闭 — 放大编码器噪声) */
 #endif
 
 #ifndef CL_INTEGRAL_MAX
-#define CL_INTEGRAL_MAX         5.0f         /* Integral windup limit / 积分饱和上限 */
+#define CL_INTEGRAL_MAX         3.0f         /* Integral windup limit / 积分饱和上限 */
 #endif
 
 #ifndef CL_DEADBAND_DEG
-#define CL_DEADBAND_DEG         2.0f         /* Deadband (deg) / 死区 */
+#define CL_DEADBAND_DEG         3.0f         /* Deadband (deg) — stop correction within this band / 死区 — 在此范围内停止修正 */
 #endif
 
 #ifndef CL_UPDATE_MS
@@ -144,7 +144,7 @@ extern "C" {
 #endif
 
 #ifndef CL_I_SEP_ERR
-#define CL_I_SEP_ERR            3.0f         /* Integral separation threshold (deg) / 积分分离阈值 */
+#define CL_I_SEP_ERR            2.5f         /* Integral separation threshold (deg) / 积分分离阈值 */
 #endif
 
 #ifndef CL_MIN_TICKS
@@ -152,29 +152,29 @@ extern "C" {
 #endif
 
 #ifndef CL_SPEED_DIV
-#define CL_SPEED_DIV            200U         /* Correction speed divisor / 修正速度除数 */
+#define CL_SPEED_DIV            400U         /* Correction speed divisor / 修正速度除数 */
 #endif
 
 #ifndef CL_EMA_ALPHA
-#define CL_EMA_ALPHA            0.2f         /* EMA filter coefficient / 指数移动平均滤波系数 */
+#define CL_EMA_ALPHA            0.35f        /* EMA filter coefficient / 指数移动平均滤波系数 */
 #endif
 
-/* Conservative correction: 2-8 deg small error / 保守修正: 2-8° 小误差 */
+/* Conservative correction: 3-5 deg small error / 保守修正: 3-5° 小误差 */
 #ifndef CL_OUTPUT_MAX_LO
-#define CL_OUTPUT_MAX_LO        1.0f         /* Max output for small error (deg) / 小误差最大输出 */
+#define CL_OUTPUT_MAX_LO        0.3f         /* Max output for small error (deg) / 小误差最大输出 */
 #endif
 
 #ifndef CL_COOLDOWN_LO_MS
-#define CL_COOLDOWN_LO_MS       800U         /* Cooldown for small error (ms) / 小误差冷却时间 */
+#define CL_COOLDOWN_LO_MS       200U         /* Cooldown for small error (ms) / 小误差冷却时间 */
 #endif
 
-/* Aggressive recovery: >8 deg large error / 强力恢复: >8° 大误差 */
+/* Aggressive recovery: >5 deg large error / 强力恢复: >5° 大误差 */
 #ifndef CL_LARGE_ERR_DEG
-#define CL_LARGE_ERR_DEG        8.0f         /* Large error threshold (deg) / 大误差阈值 */
+#define CL_LARGE_ERR_DEG        5.0f         /* Large error threshold (deg) / 大误差阈值 */
 #endif
 
 #ifndef CL_OUTPUT_MAX_HI
-#define CL_OUTPUT_MAX_HI        3.0f         /* Max output for large error (deg) / 大误差最大输出 */
+#define CL_OUTPUT_MAX_HI        2.0f         /* Max output for large error (deg) / 大误差最大输出 */
 #endif
 
 #ifndef CL_COOLDOWN_HI_MS
@@ -186,11 +186,11 @@ extern "C" {
  * ═══════════════════════════════════════════════════════════════════════════ */
 
 #ifndef COMP_DEADBAND_DEG
-#define COMP_DEADBAND_DEG       1.0f         /* Compensation deadband (deg) / 补偿死区 */
+#define COMP_DEADBAND_DEG       2.0f         /* Compensation deadband (deg) / 补偿死区 */
 #endif
 
 #ifndef COMP_SPEED_DIV
-#define COMP_SPEED_DIV          50           /* Compensation speed divisor / 补偿速度除数 */
+#define COMP_SPEED_DIV          100          /* Compensation speed divisor / 补偿速度除数 */
 #endif
 
 #ifndef COMP_MIN_TICKS
