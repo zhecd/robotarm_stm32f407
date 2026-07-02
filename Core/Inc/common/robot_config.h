@@ -210,7 +210,7 @@ extern "C" {
 #endif
 
 #ifndef HOMING_MAX_STEPS
-#define HOMING_MAX_STEPS        8000         /* Max steps before timeout / 超时前最大步数 */
+#define HOMING_MAX_STEPS        15000         /* Max steps before timeout / 超时前最大步数 */
 #endif
 
 #ifndef HOMING_BACKOFF_M1_DEG
