@@ -82,6 +82,22 @@ void SystemClock_Config(void);
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
 
+/** 50 Hz encoder reading for multi-turn wrap tracking / 50Hz 编码器读取用于多圈跟踪 */
+static void Task_EncoderRead(void)
+{
+    static uint32_t last_tick = 0;
+    uint32_t now = HAL_GetTick();
+    if (now - last_tick < 20) return;
+    last_tick = now;
+
+    for (int i = 0; i < CL_AXIS_COUNT; i++) {
+        if (Ctrl_ClosedLoop_IsAxisEnabled(i)) {
+            AS5600_Dev_t *enc = Ctrl_ClosedLoop_GetEncoder(i);
+            BSP_AS5600_Update(enc);
+        }
+    }
+}
+
 /** 1 Hz encoder status reporting (G-code mode only). */
 static void Task_EncoderReport(void)
 {
@@ -236,6 +252,8 @@ int main(void)
   while (1)
   {
       SystemMode_t mode = App_Teleop_GetMode();
+
+      Task_EncoderRead();
 
       if (mode == SYS_MODE_GCODE) {
           Task_EncoderReport();

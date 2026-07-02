@@ -21,8 +21,19 @@
 
 void Ctrl_Compensation_Execute(void)
 {
-    /* Wait for planner queue to drain / 等待运动队列清空 */
-    while (Ctrl_MotionEngine_IsRunning() || Ctrl_MotionEngine_GetQueueCount() > 0) {}
+    AS5600_Dev_t *em1 = BSP_AS5600_GetM1();
+    AS5600_Dev_t *em2 = BSP_AS5600_GetM2();
+    AS5600_Dev_t *em3 = BSP_AS5600_GetM3();
+
+    /* Wait for planner queue to drain while tracking multi-turn wraps.
+       Sampling encoders during the wait prevents Nyquist violations
+       from long motion gaps. / 等待运动队列清空, 同时跟踪多圈。
+       期间持续采样编码器, 防止长运动间隙导致跨圈丢失。 */
+    while (Ctrl_MotionEngine_IsRunning() || Ctrl_MotionEngine_GetQueueCount() > 0) {
+        BSP_AS5600_Update(em1);
+        BSP_AS5600_Update(em2);
+        BSP_AS5600_Update(em3);
+    }
     HAL_Delay(50);
 
     /* Snapshot theory step target / 快照理论步数目标 */
@@ -34,9 +45,6 @@ void Ctrl_Compensation_Execute(void)
     float tdeg3 = StepsToDeg(tm3);
 
     /* Read current encoder values / 读取当前编码器值 */
-    AS5600_Dev_t *em1 = BSP_AS5600_GetM1();
-    AS5600_Dev_t *em2 = BSP_AS5600_GetM2();
-    AS5600_Dev_t *em3 = BSP_AS5600_GetM3();
     BSP_AS5600_Update(em1);
     BSP_AS5600_Update(em2);
     BSP_AS5600_Update(em3);

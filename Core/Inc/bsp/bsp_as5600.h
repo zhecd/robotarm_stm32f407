@@ -5,6 +5,10 @@
  *
  * Three independent encoder instances on I2C1/I2C2/I2C3 / 三路独立编码器挂载 I2C1/I2C2/I2C3
  * Uses 5-sample averaging for noise reduction / 5次采样平均降噪
+ *
+ * Multi-turn resolution: callers pass expected_deg (from theory steps) to
+ * resolve which turn the single-turn sensor is on.
+ * 多圈解析: 调用者传入 expected_deg (来自理论步数) 确定单圈传感器所在圈数。
  */
 
 #ifndef __BSP_AS5600_H__
@@ -27,12 +31,20 @@ extern "C" {
 typedef struct {
     I2C_HandleTypeDef *hi2c;                /* I2C handle / I2C 句柄 */
     float              zero_offset;         /* Physical zero point (deg) / 物理零点 */
-    float              angle_deg;           /* Current angle, normalized to (-180, 180] / 当前角度, 归一化 */
+    float              angle_deg;           /* Last continuous angle (deg) / 最近连续角度 */
+    float              raw_unwrapped;       /* Accumulated raw angle across turns / 跨圈累积原始角度 */
+    int32_t            turn_count;          /* Accumulated turn count / 累积圈数 */
 } AS5600_Dev_t;
 
 ErrorCode_t  BSP_AS5600_Init(void);
 ErrorCode_t  BSP_AS5600_Update(AS5600_Dev_t *enc);
 ErrorCode_t  BSP_AS5600_SetZero(AS5600_Dev_t *enc);
+
+/** Correct turn count using expected angle from theory steps.
+    Call after long motion gaps where multiple turns may have been missed.
+    用理论步数修正多圈计数, 在长时间运动间隙后调用。 */
+void         BSP_AS5600_SyncTurn(AS5600_Dev_t *enc, float expected_deg);
+
 void         BSP_AS5600_PrintStatus(void);
 int32_t      BSP_AS5600_GetSteps(AS5600_Dev_t *enc);
 

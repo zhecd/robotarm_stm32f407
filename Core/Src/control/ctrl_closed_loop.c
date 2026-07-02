@@ -79,7 +79,7 @@ static int32_t ComputeCorrection(int i, uint32_t now_ms)
         ax->filt_angle += CL_EMA_ALPHA * (raw - ax->filt_angle);
     }
 
-    float error   = AngleWrap180(ax->target_deg - ax->filt_angle);
+    float error   = ax->target_deg - ax->filt_angle;
     float abs_err = fabsf(error);
 
     if (abs_err <= ax->deadband_deg) {
@@ -135,15 +135,31 @@ void Ctrl_ClosedLoop_SyncTarget(void)
         s_axis[i].filt_valid = false;
         PID_Reset(&s_pid[i]);
         s_last_correct_ms[i] = now;
+
+        if (s_axis[i].encoder) {
+            BSP_AS5600_Update(s_axis[i].encoder);
+            BSP_AS5600_SyncTurn(s_axis[i].encoder, s_axis[i].target_deg);
+        }
     }
 }
 
 void Ctrl_ClosedLoop_Update(void)
 {
-    if (Ctrl_MotionEngine_IsRunning() || Ctrl_MotionEngine_GetQueueCount() > 0)
-        return;
-
     uint32_t now = HAL_GetTick();
+    bool     busy = Ctrl_MotionEngine_IsRunning() || Ctrl_MotionEngine_GetQueueCount() > 0;
+
+    /* Always track multi-turn wraps, even when motion engine is busy.
+       Otherwise a Nyquist gap opens during PID correction when the user
+       is still forcing the motor. / 始终追踪多圈越界, 防止PID修正期间
+       用户持续暴力旋转导致的Nyquist采样缺口。 */
+    if (busy) {
+        for (int i = 0; i < CL_AXIS_COUNT; i++) {
+            if (s_axis[i].enabled && s_axis[i].encoder)
+                BSP_AS5600_Update(s_axis[i].encoder);
+        }
+        return;
+    }
+
     int32_t  s[CL_AXIS_COUNT];
     bool     any = false;
 
@@ -164,6 +180,7 @@ void Ctrl_ClosedLoop_Update(void)
         frame.total_ticks = CL_MIN_TICKS;
 
     if (Ctrl_MotionEngine_PushFrame(&frame)) {
+        Ctrl_MotionEngine_AdjustTheorySteps(s[0], s[1], s[2]);
         for (int i = 0; i < CL_AXIS_COUNT; i++)
             if (s[i]) s_last_correct_ms[i] = now;
     }
