@@ -151,7 +151,12 @@ static void Task_GCode(void)
         Ctrl_Compensation_Execute();
         HAL_Delay(100);
         Ctrl_ClosedLoop_SyncTarget();
-        printf("ok\r\n");
+
+        switch (frame.type) {
+        case GCMD_M3: printf("M3OK\r\n"); break;
+        case GCMD_M5: printf("M5OK\r\n"); break;
+        default:      printf("ok\r\n");   break;
+        }
     } else {
         printf("error: Parse failed!\r\n");
     }
