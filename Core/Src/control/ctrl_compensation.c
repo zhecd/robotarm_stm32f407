@@ -14,25 +14,21 @@
 
 #include "control/ctrl_compensation.h"
 #include "control/ctrl_motion_engine.h"
-#include "bsp/bsp_as5600.h"
+#include "control/ctrl_closed_loop.h"
 #include "common.h"
 #include <math.h>
 #include <stdio.h>
 
 void Ctrl_Compensation_Execute(void)
 {
-    AS5600_Dev_t *em1 = BSP_AS5600_GetM1();
-    AS5600_Dev_t *em2 = BSP_AS5600_GetM2();
-    AS5600_Dev_t *em3 = BSP_AS5600_GetM3();
-
     /* Wait for planner queue to drain while tracking multi-turn wraps.
        Sampling encoders during the wait prevents Nyquist violations
        from long motion gaps. / 等待运动队列清空, 同时跟踪多圈。
        期间持续采样编码器, 防止长运动间隙导致跨圈丢失。 */
     while (Ctrl_MotionEngine_IsRunning() || Ctrl_MotionEngine_GetQueueCount() > 0) {
-        BSP_AS5600_Update(em1);
-        BSP_AS5600_Update(em2);
-        BSP_AS5600_Update(em3);
+        Ctrl_ClosedLoop_GetAxisAngle(0, &(float){0});
+        Ctrl_ClosedLoop_GetAxisAngle(1, &(float){0});
+        Ctrl_ClosedLoop_GetAxisAngle(2, &(float){0});
     }
     HAL_Delay(50);
 
@@ -45,9 +41,10 @@ void Ctrl_Compensation_Execute(void)
     float tdeg3 = StepsToDeg(tm3);
 
     /* Read current encoder values / 读取当前编码器值 */
-    BSP_AS5600_Update(em1);
-    BSP_AS5600_Update(em2);
-    BSP_AS5600_Update(em3);
+    float e1, e2, e3;
+    Ctrl_ClosedLoop_GetAxisAngle(0, &e1);
+    Ctrl_ClosedLoop_GetAxisAngle(1, &e2);
+    Ctrl_ClosedLoop_GetAxisAngle(2, &e3);
 
     /* Persist stuck flags across calls; reset when theory target changes / 持久化卡死标记; 目标变化时重置 */
     static int32_t s_last_tm1 = -1, s_last_tm2 = -1, s_last_tm3 = -1;
@@ -62,15 +59,15 @@ void Ctrl_Compensation_Execute(void)
     float prev1 = 1e9f, prev2 = 1e9f, prev3 = 1e9f;
 
     for (int iter = 0; ; iter++) {
-        if (!skip1 && BSP_AS5600_Update(em1) != ERR_OK) { skip1 = s_stuck1 = true; }
-        if (!skip2 && BSP_AS5600_Update(em2) != ERR_OK) { skip2 = s_stuck2 = true; }
-        if (!skip3 && BSP_AS5600_Update(em3) != ERR_OK) { skip3 = s_stuck3 = true; }
+        if (!skip1 && !Ctrl_ClosedLoop_GetAxisAngle(0, &e1)) { skip1 = s_stuck1 = true; }
+        if (!skip2 && !Ctrl_ClosedLoop_GetAxisAngle(1, &e2)) { skip2 = s_stuck2 = true; }
+        if (!skip3 && !Ctrl_ClosedLoop_GetAxisAngle(2, &e3)) { skip3 = s_stuck3 = true; }
 
-        float e1 = AngleWrap180(tdeg1 - em1->angle_deg);
-        float e2 = AngleWrap180(tdeg2 - em2->angle_deg);
-        float e3 = AngleWrap180(tdeg3 - em3->angle_deg);
+        float err1 = AngleWrap180(tdeg1 - e1);
+        float err2 = AngleWrap180(tdeg2 - e2);
+        float err3 = AngleWrap180(tdeg3 - e3);
 
-        float ae1 = fabsf(e1), ae2 = fabsf(e2), ae3 = fabsf(e3);
+        float ae1 = fabsf(err1), ae2 = fabsf(err2), ae3 = fabsf(err3);
 
         bool ok1 = skip1 || ae1 <= COMP_DEADBAND_DEG;
         bool ok2 = skip2 || ae2 <= COMP_DEADBAND_DEG;
@@ -92,9 +89,9 @@ void Ctrl_Compensation_Execute(void)
         if (iter >= COMP_WATCHDOG_ROUNDS) return;
 
         int32_t cm1 = 0, cm2 = 0, cm3 = 0;
-        if (!skip1 && ae1 > COMP_DEADBAND_DEG) cm1 = DegToSteps(e1);
-        if (!skip2 && ae2 > COMP_DEADBAND_DEG) cm2 = DegToSteps(e2);
-        if (!skip3 && ae3 > COMP_DEADBAND_DEG) cm3 = DegToSteps(e3);
+        if (!skip1 && ae1 > COMP_DEADBAND_DEG) cm1 = DegToSteps(err1);
+        if (!skip2 && ae2 > COMP_DEADBAND_DEG) cm2 = DegToSteps(err2);
+        if (!skip3 && ae3 > COMP_DEADBAND_DEG) cm3 = DegToSteps(err3);
 
         if (cm1 == 0 && cm2 == 0 && cm3 == 0) continue;
 

@@ -6,7 +6,7 @@
 
 #include "app/app_teleop.h"
 #include "control/ctrl_gripper.h"
-#include "bsp/bsp_ps2.h"
+#include "control/ctrl_ps2.h"
 #include "control/ctrl_planner.h"
 #include "control/ctrl_motion_engine.h"
 #include "robot_config.h"
@@ -42,7 +42,7 @@ void App_Teleop_Task(void)
     s_last_poll_ms = HAL_GetTick();
 
     PS2_Data_t ps2 = {0};
-    bool valid = BSP_PS2_ReadData(&ps2);
+    bool valid = Ctrl_PS2_ReadData(&ps2);
 
     if (!valid) {
         if (s_mode == SYS_MODE_PS2) {

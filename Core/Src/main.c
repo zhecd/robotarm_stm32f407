@@ -30,7 +30,7 @@
 #include "bsp/bsp_stepper.h"
 #include "bsp/bsp_tmc2209.h"
 #include "bsp/bsp_uart1.h"
-#include "bsp/bsp_ps2.h"
+#include "control/ctrl_ps2.h"
 #include "control/ctrl_gripper.h"
 #include "bsp/bsp_as5600.h"
 #include "bsp/bsp_homing.h"
@@ -206,9 +206,10 @@ int main(void)
   BSP_Stepper_Init();
   BSP_UART1_Init();
   BSP_UART1_SendString("System Boot Up OK!\r\n");
-  BSP_PS2_Init();
+  Ctrl_PS2_Init();
 
-  Ctrl_Gripper_Init();
+  extern TIM_HandleTypeDef htim2;
+  Ctrl_Gripper_Init(&htim2);
 
   BSP_AS5600_Init();
 

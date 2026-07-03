@@ -7,10 +7,9 @@
 #include "control/ctrl_gripper.h"
 #include "bsp/bsp_gripper.h"
 
-void Ctrl_Gripper_Init(void)
+void Ctrl_Gripper_Init(TIM_HandleTypeDef *htim)
 {
-    extern TIM_HandleTypeDef htim2;
-    BSP_Gripper_Init(BSP_Gripper_GetHandle(), &htim2, TIM_CHANNEL_2);
+    BSP_Gripper_Init(BSP_Gripper_GetHandle(), htim, TIM_CHANNEL_2);
 }
 
 void Ctrl_Gripper_Open(void)

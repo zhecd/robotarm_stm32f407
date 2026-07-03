@@ -13,11 +13,13 @@
 #ifndef __CTRL_GRIPPER_H__
 #define __CTRL_GRIPPER_H__
 
+#include "main.h"
+
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-void Ctrl_Gripper_Init(void);
+void Ctrl_Gripper_Init(TIM_HandleTypeDef *htim);
 void Ctrl_Gripper_Open(void);
 void Ctrl_Gripper_Close(void);
 void Ctrl_Gripper_IdleStop(void);
