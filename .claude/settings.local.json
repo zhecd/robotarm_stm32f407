@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git -C \"e:/STM32CubeMX TEST/vscode text/F407AS5600_2\" show HEAD:Core/Src/bsp/bsp_as5600.c)",
+      "Bash(git -C \"e:/STM32CubeMX TEST/vscode text/F407AS5600_2\" diff HEAD -- Core/Src/main.c)"
+    ]
+  }
+}

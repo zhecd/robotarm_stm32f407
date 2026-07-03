@@ -7,7 +7,6 @@
 #include "app/app_calibration.h"
 #include "control/ctrl_motion_engine.h"
 #include "control/ctrl_closed_loop.h"
-#include "bsp/bsp_as5600.h"
 #include "error_code.h"
 #include <stdio.h>
 
@@ -19,9 +18,9 @@ void App_Calibration_Execute(void)
        重试最多 3 次, 防止 I2C 瞬态故障导致误判。 */
     ErrorCode_t ok1 = ERR_ENCODER_FAIL, ok2 = ERR_ENCODER_FAIL, ok3 = ERR_ENCODER_FAIL;
     for (int retry = 0; retry < 3; retry++) {
-        if (ok1 != ERR_OK) ok1 = BSP_AS5600_SetZero(BSP_AS5600_GetM1());
-        if (ok2 != ERR_OK) ok2 = BSP_AS5600_SetZero(BSP_AS5600_GetM2());
-        if (ok3 != ERR_OK) ok3 = BSP_AS5600_SetZero(BSP_AS5600_GetM3());
+        if (ok1 != ERR_OK) ok1 = Ctrl_ClosedLoop_SetAxisZero(0);
+        if (ok2 != ERR_OK) ok2 = Ctrl_ClosedLoop_SetAxisZero(1);
+        if (ok3 != ERR_OK) ok3 = Ctrl_ClosedLoop_SetAxisZero(2);
         if (ok1 == ERR_OK && ok2 == ERR_OK && ok3 == ERR_OK) break;
         HAL_Delay(10);
     }

@@ -16,7 +16,6 @@
 #ifndef __CTRL_KINEMATICS_H__
 #define __CTRL_KINEMATICS_H__
 
-#include "main.h"
 #include <math.h>
 #include <stdint.h>
 

@@ -31,7 +31,7 @@
 #include "bsp/bsp_tmc2209.h"
 #include "bsp/bsp_uart1.h"
 #include "bsp/bsp_ps2.h"
-#include "bsp/bsp_gripper.h"
+#include "control/ctrl_gripper.h"
 #include "bsp/bsp_as5600.h"
 #include "bsp/bsp_homing.h"
 
@@ -92,8 +92,8 @@ static void Task_EncoderRead(void)
 
     for (int i = 0; i < CL_AXIS_COUNT; i++) {
         if (Ctrl_ClosedLoop_IsAxisEnabled(i)) {
-            AS5600_Dev_t *enc = Ctrl_ClosedLoop_GetEncoder(i);
-            BSP_AS5600_Update(enc);
+            float angle;
+            Ctrl_ClosedLoop_GetAxisAngle(i, &angle);
         }
     }
 }
@@ -110,8 +110,7 @@ static void Task_EncoderReport(void)
     for (int i = 0; i < CL_AXIS_COUNT; i++) {
         cur[i] = 0.0f;
         if (Ctrl_ClosedLoop_IsAxisEnabled(i)) {
-            AS5600_Dev_t *enc = Ctrl_ClosedLoop_GetEncoder(i);
-            cur[i] = (BSP_AS5600_Update(enc) == ERR_OK) ? enc->angle_deg : 0.0f;
+            cur[i] = (Ctrl_ClosedLoop_GetAxisAngle(i, &cur[i])) ? cur[i] : 0.0f;
         }
     }
 
@@ -209,8 +208,7 @@ int main(void)
   BSP_UART1_SendString("System Boot Up OK!\r\n");
   BSP_PS2_Init();
 
-  extern TIM_HandleTypeDef htim2;
-  BSP_Gripper_Init(BSP_Gripper_GetHandle(), &htim2, TIM_CHANNEL_2);
+  Ctrl_Gripper_Init();
 
   BSP_AS5600_Init();
 
@@ -258,15 +256,14 @@ int main(void)
   {
       SystemMode_t mode = App_Teleop_GetMode();
 
-      Task_EncoderRead();
-
       if (mode == SYS_MODE_GCODE) {
+          Task_EncoderRead();
           Task_EncoderReport();
           Task_ClosedLoop();
       }
 
       App_Teleop_Task();
-      BSP_Gripper_IdleStop(BSP_Gripper_GetHandle());
+      Ctrl_Gripper_IdleStop();
 
       if (mode == SYS_MODE_GCODE) {
           Task_GCode();

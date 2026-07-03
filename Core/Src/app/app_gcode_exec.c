@@ -5,7 +5,7 @@
  */
 
 #include "app/app_gcode_exec.h"
-#include "bsp/bsp_gripper.h"
+#include "control/ctrl_gripper.h"
 #include "control/ctrl_planner.h"
 #include "robot_config.h"
 #include <math.h>
@@ -67,10 +67,10 @@ void App_GCodeExec_Run(const GCodeFrame_t *frame)
         RunLinearMove(frame);
         break;
     case GCMD_M3:
-        BSP_Gripper_Open(BSP_Gripper_GetHandle());
+        Ctrl_Gripper_Open();
         break;
     case GCMD_M5:
-        BSP_Gripper_Close(BSP_Gripper_GetHandle());
+        Ctrl_Gripper_Close();
         break;
     case GCMD_UNKNOWN:
     default:

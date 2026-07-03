@@ -11,7 +11,6 @@
 #ifndef __APP_TELEOP_H__
 #define __APP_TELEOP_H__
 
-#include "main.h"
 
 #ifdef __cplusplus
 extern "C" {

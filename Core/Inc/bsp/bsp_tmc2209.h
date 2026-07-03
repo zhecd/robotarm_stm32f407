@@ -10,7 +10,7 @@
 #ifndef __BSP_TMC2209_H__
 #define __BSP_TMC2209_H__
 
-#include "stm32f4xx_hal.h"
+#include "main.h"
 #include <stdbool.h>
 #include <stdint.h>
 

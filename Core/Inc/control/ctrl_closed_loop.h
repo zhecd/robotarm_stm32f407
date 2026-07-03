@@ -20,7 +20,7 @@
 
 #include <stdbool.h>
 #include <stdint.h>
-#include "bsp/bsp_as5600.h"
+#include "common/error_code.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -36,10 +36,16 @@ void Ctrl_ClosedLoop_SyncTarget(void);
 /** Run one PID iteration (call at 50 Hz) / 运行一次 PID 迭代 (50Hz 调用) */
 void Ctrl_ClosedLoop_Update(void);
 
-/** Per-axis state queries / 逐轴状态查询 (替代直接访问 g_axis[]) */
+/** Per-axis state queries / 逐轴状态查询 */
 bool          Ctrl_ClosedLoop_IsAxisEnabled(int axis);
 void          Ctrl_ClosedLoop_SetAxisEnabled(int axis, bool en);
-AS5600_Dev_t *Ctrl_ClosedLoop_GetEncoder(int axis);
+
+/** Get latest encoder angle for an axis (deg), with multi-turn update.
+    成功返回 true 并写入 *out_deg, 失败返回 false 且 *out_deg=0. */
+bool          Ctrl_ClosedLoop_GetAxisAngle(int axis, float *out_deg);
+
+/** Set zero point for an axis encoder / 设置轴编码器零点, 成功返回 ERR_OK */
+ErrorCode_t   Ctrl_ClosedLoop_SetAxisZero(int axis);
 
 #ifdef __cplusplus
 }

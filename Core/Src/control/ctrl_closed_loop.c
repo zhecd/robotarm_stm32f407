@@ -6,7 +6,9 @@
 
 #include "control/ctrl_closed_loop.h"
 #include "control/ctrl_motion_engine.h"
+#include "bsp/bsp_as5600.h"
 #include "common.h"
+#include "error_code.h"
 #include <math.h>
 #include <stdio.h>
 
@@ -199,7 +201,23 @@ void Ctrl_ClosedLoop_SetAxisEnabled(int axis, bool en)
         s_axis[axis].enabled = en;
 }
 
-AS5600_Dev_t *Ctrl_ClosedLoop_GetEncoder(int axis)
+bool Ctrl_ClosedLoop_GetAxisAngle(int axis, float *out_deg)
 {
-    return (axis >= 0 && axis < CL_AXIS_COUNT) ? s_axis[axis].encoder : NULL;
+    if (axis < 0 || axis >= CL_AXIS_COUNT || !s_axis[axis].encoder) {
+        if (out_deg) *out_deg = 0.0f;
+        return false;
+    }
+    if (BSP_AS5600_Update(s_axis[axis].encoder) != ERR_OK) {
+        if (out_deg) *out_deg = 0.0f;
+        return false;
+    }
+    if (out_deg) *out_deg = s_axis[axis].encoder->angle_deg;
+    return true;
+}
+
+ErrorCode_t Ctrl_ClosedLoop_SetAxisZero(int axis)
+{
+    if (axis < 0 || axis >= CL_AXIS_COUNT || !s_axis[axis].encoder)
+        return ERR_NULL_PARAM;
+    return BSP_AS5600_SetZero(s_axis[axis].encoder);
 }

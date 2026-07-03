@@ -67,6 +67,7 @@ target_sources(${CMAKE_PROJECT_NAME} PRIVATE
     Core/Src/control/ctrl_planner.c
     Core/Src/control/ctrl_closed_loop.c
     Core/Src/control/ctrl_compensation.c
+    Core/Src/control/ctrl_gripper.c
 
     # App layer
     Core/Src/app/app_gcode_parser.c

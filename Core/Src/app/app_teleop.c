@@ -5,7 +5,7 @@
  */
 
 #include "app/app_teleop.h"
-#include "bsp/bsp_gripper.h"
+#include "control/ctrl_gripper.h"
 #include "bsp/bsp_ps2.h"
 #include "control/ctrl_planner.h"
 #include "control/ctrl_motion_engine.h"
@@ -86,11 +86,11 @@ void App_Teleop_Task(void)
 
         /* Cross = close, Square = open / 叉键=关闭, 方键=打开 */
         if ((s_last_buttons & PS2_BTN_CROSS) && !(ps2.buttons & PS2_BTN_CROSS)) {
-            BSP_Gripper_Close(BSP_Gripper_GetHandle());
+            Ctrl_Gripper_Close();
             printf("PS2: Gripper Close\r\n");
         }
         if ((s_last_buttons & PS2_BTN_SQUARE) && !(ps2.buttons & PS2_BTN_SQUARE)) {
-            BSP_Gripper_Open(BSP_Gripper_GetHandle());
+            Ctrl_Gripper_Open();
             printf("PS2: Gripper Open\r\n");
         }
     }
