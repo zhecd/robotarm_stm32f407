@@ -38,7 +38,6 @@
 #include "control/ctrl_motion_engine.h"
 #include "control/ctrl_planner.h"
 #include "control/ctrl_closed_loop.h"
-#include "control/ctrl_compensation.h"
 
 #include "app/app_teleop.h"
 #include "app/app_gcode_parser.h"
@@ -49,6 +48,10 @@
 #include "common/robot_config.h"
 
 #include <stdio.h>
+
+/* Mode indicators: G-code uses LED0; PS2 teleoperation uses LED1. */
+#define MODE_LED_GCODE LED_0
+#define MODE_LED_PS2   LED_1
 
 /* USER CODE END Includes */
 
@@ -70,6 +73,8 @@
 /* Private variables ---------------------------------------------------------*/
 
 /* USER CODE BEGIN PV */
+
+static volatile bool s_mode_switch_requested = false;
 
 /* USER CODE END PV */
 
@@ -143,13 +148,22 @@ static void Task_GCode(void)
     char          line[256];
     GCodeFrame_t  frame;
 
+    /* A second guard makes this task safe even if the mode changes between
+       scheduler checks.  UART input is intentionally left unread in PS2 mode. */
+    if (App_Teleop_GetMode() != SYS_MODE_GCODE) return;
     if (!BSP_UART1_ReadLine(line, sizeof(line))) return;
 
     if (App_GCodeParser_ParseLine(line, &frame)) {
-        App_GCodeExec_Run(&frame);
-        Ctrl_Compensation_Execute();
-        HAL_Delay(100);
-        Ctrl_ClosedLoop_SyncTarget();
+        ErrorCode_t status = App_GCodeExec_Run(&frame);
+        if (status != ERR_OK) {
+            printf("error: command rejected (%d)\r\n", (int)status);
+            return;
+        }
+        /* Static compensation contains blocking waits and must not run from
+           the command path.  The periodic closed-loop task provides position
+           hold; only a Cartesian command needs a new closed-loop target. */
+        if (frame.type == GCMD_G0 || frame.type == GCMD_G1)
+            Ctrl_ClosedLoop_SyncTarget();
 
         switch (frame.type) {
         case GCMD_M3: printf("M3OK\r\n"); break;
@@ -158,6 +172,50 @@ static void Task_GCode(void)
         }
     } else {
         printf("error: Parse failed!\r\n");
+    }
+}
+
+/* Execute mode changes in the foreground, not inside the GPIO interrupt.
+   This keeps UART output and application state out of interrupt context. */
+static void Task_ModeSwitch(void)
+{
+    static uint32_t last_switch_ms = 0U;
+    if (!s_mode_switch_requested) return;
+    s_mode_switch_requested = false;
+
+    uint32_t now = HAL_GetTick();
+    if ((now - last_switch_ms) < 200U) return;
+    last_switch_ms = now;
+
+    if (Ctrl_MotionEngine_IsRunning() || Ctrl_MotionEngine_GetQueueCount() != 0U) {
+        printf("Warning: Motors moving, cannot switch mode!\r\n");
+        return;
+    }
+
+    App_Teleop_ToggleMode();
+    SystemMode_t mode = App_Teleop_GetMode();
+    BSP_LED_SetState(MODE_LED_GCODE, (mode == SYS_MODE_GCODE) ? LED_ON : LED_OFF);
+    BSP_LED_SetState(MODE_LED_PS2,   (mode == SYS_MODE_PS2)   ? LED_ON : LED_OFF);
+    printf("\r\n>>> MODE: [%s] <<<\r\n",
+           (mode == SYS_MODE_GCODE) ? "G-CODE" : "PS2 TELEOP");
+}
+
+static void UpdateModeIndicator(SystemMode_t mode)
+{
+    static SystemMode_t last_mode = (SystemMode_t)-1;
+    if (mode == last_mode) return;
+    last_mode = mode;
+    BSP_LED_SetState(MODE_LED_GCODE, (mode == SYS_MODE_GCODE) ? LED_ON : LED_OFF);
+    BSP_LED_SetState(MODE_LED_PS2,   (mode == SYS_MODE_PS2)   ? LED_ON : LED_OFF);
+}
+
+static const char *MotionFaultText(MotionFaultReason_t reason)
+{
+    switch (reason) {
+    case MOTION_FAULT_LIMIT_SWITCH: return "limit switch";
+    case MOTION_FAULT_ENCODER:      return "encoder communication";
+    case MOTION_FAULT_QUEUE_TIMEOUT:return "planner queue timeout";
+    default:                        return "unspecified";
     }
 }
 
@@ -229,21 +287,35 @@ int main(void)
   BSP_TMC2209_ConfigNode(&huart6, 2, 16, TMC_DEFAULT_IRUN, TMC_DEFAULT_IHOLD);  // M3: 16细分
 
   /* ── Homing ── */
-  BSP_Homing_Execute();
+  if (!BSP_Homing_Execute()) {
+      printf("error: homing failed; motion disabled\r\n");
+      BSP_Stepper_Enable(BSP_Stepper_GetM1(), false);
+      BSP_Stepper_Enable(BSP_Stepper_GetM2(), false);
+      BSP_Stepper_Enable(BSP_Stepper_GetM3(), false);
+      Error_Handler();
+  }
 
   /* ── Control layer initialization ── */
   Ctrl_MotionEngine_Init();
-  Ctrl_Planner_Init(0.0f, 185.0f, 240.0f);
+  if (Ctrl_Planner_Init(0.0f, 185.0f, 240.0f) != ERR_OK) {
+      printf("error: initial pose is unreachable; motion disabled\r\n");
+      BSP_Stepper_Enable(BSP_Stepper_GetM1(), false);
+      BSP_Stepper_Enable(BSP_Stepper_GetM2(), false);
+      BSP_Stepper_Enable(BSP_Stepper_GetM3(), false);
+      Error_Handler();
+  }
   App_GCodeExec_Init(0.0f, 185.0f, 240.0f);
 
   /* ── Application layer ── */
   App_Teleop_Init();
   Ctrl_ClosedLoop_Init();
   App_Calibration_Execute();
+  Ctrl_MotionEngine_ClearFault();
+  Ctrl_MotionEngine_EnableLimitMonitoring(true);
 
   /* ── Mode indicator LED ── */
-  BSP_LED_SetState(LED_0, LED_ON);
-  BSP_LED_SetState(LED_1, LED_OFF);
+  BSP_LED_SetState(MODE_LED_GCODE, LED_ON);
+  BSP_LED_SetState(MODE_LED_PS2, LED_OFF);
 
   /* ── Start motion engine interrupt (TIM6, 50 kHz) ── */
   extern TIM_HandleTypeDef htim6;
@@ -255,15 +327,39 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
+      static bool fault_reported = false;
+      Ctrl_MotionEngine_ServiceSafety();
+      if (Ctrl_MotionEngine_HasFault()) {
+          BSP_LED_SetState(MODE_LED_GCODE, LED_OFF);
+          BSP_LED_SetState(MODE_LED_PS2, LED_ON);
+          if (!fault_reported) {
+              printf("error: motion safety stop (%s); re-home required\r\n",
+                     MotionFaultText(Ctrl_MotionEngine_GetFaultReason()));
+              fault_reported = true;
+          }
+          /* Keep communications and the gripper available.  Cartesian motion
+             remains rejected by the faulted motion engine. */
+          Task_ModeSwitch();
+          Ctrl_Gripper_IdleStop();
+          if (App_Teleop_GetMode() == SYS_MODE_GCODE)
+              Task_GCode();
+          continue;
+      }
+      fault_reported = false;
+      Task_ModeSwitch();
+      App_Teleop_Task();
       SystemMode_t mode = App_Teleop_GetMode();
+      UpdateModeIndicator(mode);
 
       if (mode == SYS_MODE_GCODE) {
-          Task_EncoderRead();
           Task_EncoderReport();
           Task_ClosedLoop();
+      } else {
+          /* In G-code mode the closed-loop task already samples the encoders.
+             Poll only in teleop mode to avoid redundant I2C transactions. */
+          Task_EncoderRead();
       }
 
-      App_Teleop_Task();
       Ctrl_Gripper_IdleStop();
 
       if (mode == SYS_MODE_GCODE) {
@@ -329,28 +425,13 @@ void SystemClock_Config(void)
 /* PE2 key: mode switch GCode(LED0) <-> PS2 teleop(LED1) */
 void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
 {
-    if (GPIO_Pin != KEY_MODE_Pin)
-        return;
-
-    static uint32_t last_tick = 0;
-    uint32_t now = HAL_GetTick();
-    if (now - last_tick < 50)
-        return;
-    last_tick = now;
-
-    if (Ctrl_MotionEngine_IsRunning()) {
-        printf("Warning: Motors moving, cannot switch mode!\r\n");
+    if (GPIO_Pin == M1_STOP_Pin || GPIO_Pin == M2_STOP_Pin || GPIO_Pin == M3_STOP_Pin) {
+        Ctrl_MotionEngine_NotifyLimitSwitch(GPIO_Pin);
         return;
     }
 
-    App_Teleop_ToggleMode();
-
-    SystemMode_t mode = App_Teleop_GetMode();
-    BSP_LED_SetState(LED_0, (mode == SYS_MODE_GCODE) ? LED_ON : LED_OFF);
-    BSP_LED_SetState(LED_1, (mode == SYS_MODE_PS2)   ? LED_ON : LED_OFF);
-
-    printf("\r\n>>> MODE: [%s] <<<\r\n",
-           (mode == SYS_MODE_GCODE) ? "G-CODE" : "PS2 TELEOP");
+    if (GPIO_Pin == KEY_MODE_Pin)
+        s_mode_switch_requested = true;
 }
 
 /* USER CODE END 4 */

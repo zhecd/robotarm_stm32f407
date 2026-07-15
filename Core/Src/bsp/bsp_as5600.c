@@ -10,6 +10,10 @@
 #include <stdlib.h>
 #include <math.h>
 
+#ifndef M_PI
+#define M_PI 3.14159265358979323846f
+#endif
+
 static AS5600_Dev_t s_enc_m1;
 static AS5600_Dev_t s_enc_m2;
 static AS5600_Dev_t s_enc_m3;
@@ -26,13 +30,21 @@ static float ReadRawDeg(AS5600_Dev_t *enc)
 
 static float ReadAvgDeg(AS5600_Dev_t *enc)
 {
-    float sum = 0.0f;
+    float sum_sin = 0.0f;
+    float sum_cos = 0.0f;
     int   valid = 0;
     for (int i = 0; i < AS5600_AVG_SAMPLES; i++) {
         float val = ReadRawDeg(enc);
-        if (val >= 0.0f) { sum += val; valid++; }
+        if (val >= 0.0f) {
+            float rad = val * M_PI / 180.0f;
+            sum_sin += sinf(rad);
+            sum_cos += cosf(rad);
+            valid++;
+        }
     }
-    return (valid > 0) ? (sum / (float)valid) : -1.0f;
+    if (valid == 0) return -1.0f;
+    float avg = atan2f(sum_sin, sum_cos) * 180.0f / M_PI;
+    return (avg < 0.0f) ? (avg + 360.0f) : avg;
 }
 
 /* ── Public API ── */
@@ -47,6 +59,7 @@ ErrorCode_t BSP_AS5600_Init(void)
         list[i]->angle_deg     = 0.0f;
         list[i]->raw_unwrapped = 0.0f;
         list[i]->turn_count    = 0;
+        list[i]->initialized   = false;
     }
     return ERR_OK;
 }
@@ -59,8 +72,9 @@ ErrorCode_t BSP_AS5600_Update(AS5600_Dev_t *enc)
     if (phys < 0.0f) return ERR_ENCODER_FAIL;
 
     /* Init on first call or after SetZero */
-    if (enc->turn_count == 0 && enc->raw_unwrapped == 0.0f) {
+    if (!enc->initialized) {
         enc->raw_unwrapped = phys;
+        enc->initialized = true;
     } else {
         float prev = fmodf(enc->raw_unwrapped, 360.0f);
         if (prev < 0.0f) prev += 360.0f;
@@ -101,6 +115,7 @@ ErrorCode_t BSP_AS5600_SetZero(AS5600_Dev_t *enc)
     enc->angle_deg     = 0.0f;
     enc->raw_unwrapped = phys;
     enc->turn_count    = 0;
+    enc->initialized   = true;
     return ERR_OK;
 }
 

@@ -13,7 +13,12 @@ static MotionFrame_t s_buffer[RING_BUFFER_SIZE];
 static volatile uint16_t s_head = 0;
 static volatile uint16_t s_tail = 0;
 
-static bool          s_running      = false;
+static volatile bool s_running      = false;
+static volatile bool s_faulted      = false;
+static volatile bool s_limit_monitoring_enabled = false;
+static volatile uint16_t s_pending_limit_pins = 0U;
+static volatile uint32_t s_limit_event_ms = 0U;
+static volatile MotionFaultReason_t s_fault_reason = MOTION_FAULT_NONE;
 static MotionFrame_t s_cur_frame;
 static uint32_t      s_cur_tick     = 0;
 static uint32_t      s_acc_m1       = 0;
@@ -32,6 +37,10 @@ void Ctrl_MotionEngine_Init(void)
     s_head = 0;
     s_tail = 0;
     s_running  = false;
+    s_faulted = false;
+    s_limit_monitoring_enabled = false;
+    s_pending_limit_pins = 0U;
+    s_fault_reason = MOTION_FAULT_NONE;
     s_cur_tick = 0;
     s_theory_m1 = 0;
     s_theory_m2 = 0;
@@ -40,7 +49,7 @@ void Ctrl_MotionEngine_Init(void)
 
 bool Ctrl_MotionEngine_PushFrame(const MotionFrame_t *frame)
 {
-    if (!frame) return false;
+    if (!frame || s_faulted) return false;
     uint16_t next = (s_head + 1) % RING_BUFFER_SIZE;
     if (next == s_tail) return false;
     s_buffer[s_head] = *frame;
@@ -61,6 +70,69 @@ void Ctrl_MotionEngine_Clear(void)
     __disable_irq();
     s_tail = s_head;
     __enable_irq();
+}
+
+void Ctrl_MotionEngine_EmergencyStop(void)
+{
+    Ctrl_MotionEngine_EmergencyStopWithReason(MOTION_FAULT_NONE);
+}
+
+void Ctrl_MotionEngine_EmergencyStopWithReason(MotionFaultReason_t reason)
+{
+    __disable_irq();
+    s_head = 0;
+    s_tail = 0;
+    s_running = false;
+    s_cur_tick = 0;
+    s_acc_m1 = s_acc_m2 = s_acc_m3 = 0;
+    s_faulted = true;
+    s_fault_reason = reason;
+    __enable_irq();
+}
+
+void Ctrl_MotionEngine_EnableLimitMonitoring(bool enabled)
+{
+    s_limit_monitoring_enabled = enabled;
+}
+
+void Ctrl_MotionEngine_NotifyLimitSwitch(uint16_t gpio_pin)
+{
+    if (!s_limit_monitoring_enabled) return;
+    s_pending_limit_pins |= gpio_pin;
+    s_limit_event_ms = HAL_GetTick();
+}
+
+void Ctrl_MotionEngine_ServiceSafety(void)
+{
+    uint16_t pending = s_pending_limit_pins;
+    if (pending == 0U || (HAL_GetTick() - s_limit_event_ms) < 10U) return;
+    s_pending_limit_pins = 0U;
+
+    bool active = false;
+    if ((pending & M1_STOP_Pin) && HAL_GPIO_ReadPin(M1_STOP_GPIO_Port, M1_STOP_Pin) == GPIO_PIN_RESET)
+        active = true;
+    if ((pending & M2_STOP_Pin) && HAL_GPIO_ReadPin(M2_STOP_GPIO_Port, M2_STOP_Pin) == GPIO_PIN_RESET)
+        active = true;
+    if ((pending & M3_STOP_Pin) && HAL_GPIO_ReadPin(M3_STOP_GPIO_Port, M3_STOP_Pin) == GPIO_PIN_RESET)
+        active = true;
+    if (active)
+        Ctrl_MotionEngine_EmergencyStopWithReason(MOTION_FAULT_LIMIT_SWITCH);
+}
+
+bool Ctrl_MotionEngine_HasFault(void)
+{
+    return s_faulted;
+}
+
+MotionFaultReason_t Ctrl_MotionEngine_GetFaultReason(void)
+{
+    return s_fault_reason;
+}
+
+void Ctrl_MotionEngine_ClearFault(void)
+{
+    s_faulted = false;
+    s_fault_reason = MOTION_FAULT_NONE;
 }
 
 bool Ctrl_MotionEngine_IsRunning(void)
@@ -105,7 +177,7 @@ void Ctrl_MotionEngine_AdjustTheorySteps(int32_t dm1, int32_t dm2, int32_t dm3)
 
 void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 {
-    if (htim->Instance != TIM6) return;
+    if (htim->Instance != TIM6 || s_faulted) return;
 
     if (!s_running) {
         if (!PopFrame(&s_cur_frame)) return;

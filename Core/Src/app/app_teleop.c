@@ -57,15 +57,9 @@ void App_Teleop_Task(void)
     s_fault_reported = false;
 
     /* SELECT button: toggle mode / SELECT 键: 切换模式 */
-    if ((s_last_buttons & PS2_BTN_SELECT) && !(ps2.buttons & PS2_BTN_SELECT)) {
-        if (Ctrl_MotionEngine_GetQueueCount() == 0U && !Ctrl_MotionEngine_IsRunning()) {
-            s_mode = (s_mode == SYS_MODE_GCODE) ? SYS_MODE_PS2 : SYS_MODE_GCODE;
-            printf("\r\n>>> MODE SWITCHED TO: [%s] <<<\r\n",
-                   (s_mode == SYS_MODE_GCODE) ? "G-CODE" : "PS2 TELEOP");
-        } else {
-            printf("Warning: Wait for motors to stop before switching mode!\r\n");
-        }
-    }
+    /* Mode changes are owned exclusively by the physical MODE key.  Keeping
+       SELECT out of this path prevents packet noise or an accidental press
+       from silently enabling/disabling UART G-code control. */
 
     if (s_mode == SYS_MODE_PS2) {
         float dx = 0.0f, dy = 0.0f, dz = 0.0f;

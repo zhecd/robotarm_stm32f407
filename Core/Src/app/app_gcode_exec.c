@@ -32,7 +32,7 @@ static uint32_t ComputeDuration(float tx, float ty, float tz)
     return (ms == 0U) ? GCODE_MIN_DURATION_MS : ms;
 }
 
-static void RunLinearMove(const GCodeFrame_t *frame)
+static ErrorCode_t RunLinearMove(const GCodeFrame_t *frame)
 {
     float tx = frame->has_x ? frame->x : s_exec.cur_x;
     float ty = frame->has_y ? frame->y : s_exec.cur_y;
@@ -42,11 +42,13 @@ static void RunLinearMove(const GCodeFrame_t *frame)
         s_exec.feedrate = (float)frame->f;
 
     uint32_t dur = ComputeDuration(tx, ty, tz);
-    Ctrl_Planner_MoveLine(tx, ty, tz, dur);
+    ErrorCode_t status = Ctrl_Planner_MoveLine(tx, ty, tz, dur);
+    if (status != ERR_OK) return status;
 
     s_exec.cur_x = tx;
     s_exec.cur_y = ty;
     s_exec.cur_z = tz;
+    return ERR_OK;
 }
 
 void App_GCodeExec_Init(float sx, float sy, float sz)
@@ -57,23 +59,22 @@ void App_GCodeExec_Init(float sx, float sy, float sz)
     s_exec.feedrate = GCODE_DEFAULT_FEEDRATE;
 }
 
-void App_GCodeExec_Run(const GCodeFrame_t *frame)
+ErrorCode_t App_GCodeExec_Run(const GCodeFrame_t *frame)
 {
-    if (!frame) return;
+    if (!frame) return ERR_NULL_PARAM;
 
     switch (frame->type) {
     case GCMD_G0:
     case GCMD_G1:
-        RunLinearMove(frame);
-        break;
+        return RunLinearMove(frame);
     case GCMD_M3:
         Ctrl_Gripper_Open();
-        break;
+        return ERR_OK;
     case GCMD_M5:
         Ctrl_Gripper_Close();
-        break;
+        return ERR_OK;
     case GCMD_UNKNOWN:
     default:
-        break;
+        return ERR_OUT_OF_RANGE;
     }
 }

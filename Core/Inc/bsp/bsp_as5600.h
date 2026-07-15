@@ -34,6 +34,7 @@ typedef struct {
     float              angle_deg;           /* Last continuous angle (deg) / 最近连续角度 */
     float              raw_unwrapped;       /* Accumulated raw angle across turns / 跨圈累积原始角度 */
     int32_t            turn_count;          /* Accumulated turn count / 累积圈数 */
+    bool               initialized;         /* First valid sample has been received. */
 } AS5600_Dev_t;
 
 ErrorCode_t  BSP_AS5600_Init(void);

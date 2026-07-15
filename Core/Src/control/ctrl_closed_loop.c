@@ -27,11 +27,23 @@ typedef struct {
     bool           enabled;
     float          filt_angle;
     bool           filt_valid;
+    uint8_t        read_failures;
 } AxisCL_t;
 
 static AxisCL_t      s_axis[CL_AXIS_COUNT];
 static PID_State_t   s_pid[CL_AXIS_COUNT];
 static uint32_t      s_last_correct_ms[CL_AXIS_COUNT];
+
+static bool UpdateEncoder(AxisCL_t *ax)
+{
+    if (BSP_AS5600_Update(ax->encoder) == ERR_OK) {
+        ax->read_failures = 0U;
+        return true;
+    }
+    if (++ax->read_failures >= CL_ENCODER_FAIL_LIMIT)
+        Ctrl_MotionEngine_EmergencyStopWithReason(MOTION_FAULT_ENCODER);
+    return false;
+}
 
 /* ── PID core / PID 核心 ── */
 
@@ -71,7 +83,7 @@ static int32_t ComputeCorrection(int i, uint32_t now_ms)
     AxisCL_t *ax = &s_axis[i];
     if (!ax->enabled || !ax->encoder) return 0;
 
-    if (BSP_AS5600_Update(ax->encoder) != ERR_OK) return 0;
+    if (!UpdateEncoder(ax)) return 0;
 
     float raw = ax->encoder->angle_deg;
     if (!ax->filt_valid) {
@@ -119,6 +131,7 @@ void Ctrl_ClosedLoop_Init(void)
         s_axis[i].enabled     = true;
         s_axis[i].filt_angle  = 0.0f;
         s_axis[i].filt_valid  = false;
+        s_axis[i].read_failures = 0U;
 
         s_pid[i] = (PID_State_t){.integral_max = CL_INTEGRAL_MAX};
         s_last_correct_ms[i] = 0;
@@ -139,7 +152,7 @@ void Ctrl_ClosedLoop_SyncTarget(void)
         s_last_correct_ms[i] = now;
 
         if (s_axis[i].encoder) {
-            BSP_AS5600_Update(s_axis[i].encoder);
+            UpdateEncoder(&s_axis[i]);
             BSP_AS5600_SyncTurn(s_axis[i].encoder, s_axis[i].target_deg);
         }
     }
@@ -147,6 +160,7 @@ void Ctrl_ClosedLoop_SyncTarget(void)
 
 void Ctrl_ClosedLoop_Update(void)
 {
+    if (Ctrl_MotionEngine_HasFault()) return;
     uint32_t now = HAL_GetTick();
     bool     busy = Ctrl_MotionEngine_IsRunning() || Ctrl_MotionEngine_GetQueueCount() > 0;
 
@@ -157,7 +171,7 @@ void Ctrl_ClosedLoop_Update(void)
     if (busy) {
         for (int i = 0; i < CL_AXIS_COUNT; i++) {
             if (s_axis[i].enabled && s_axis[i].encoder)
-                BSP_AS5600_Update(s_axis[i].encoder);
+                UpdateEncoder(&s_axis[i]);
         }
         return;
     }
@@ -207,7 +221,7 @@ bool Ctrl_ClosedLoop_GetAxisAngle(int axis, float *out_deg)
         if (out_deg) *out_deg = 0.0f;
         return false;
     }
-    if (BSP_AS5600_Update(s_axis[axis].encoder) != ERR_OK) {
+    if (!UpdateEncoder(&s_axis[axis])) {
         if (out_deg) *out_deg = 0.0f;
         return false;
     }

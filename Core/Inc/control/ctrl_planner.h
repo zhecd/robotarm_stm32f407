@@ -14,18 +14,19 @@
 
 #include <stdbool.h>
 #include <stdint.h>
+#include "error_code.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-void Ctrl_Planner_Init(float start_x, float start_y, float start_z);
+ErrorCode_t Ctrl_Planner_Init(float start_x, float start_y, float start_z);
 
 /** Plan and queue a straight-line move / 规划并排队直线运动 */
-bool Ctrl_Planner_MoveLine(float target_x, float target_y, float target_z, uint32_t duration_ms);
+ErrorCode_t Ctrl_Planner_MoveLine(float target_x, float target_y, float target_z, uint32_t duration_ms);
 
 /** Single step for teleop joystick control / 遥控摇杆单步移动 */
-bool Ctrl_Planner_TeleopStep(float dx, float dy, float dz);
+ErrorCode_t Ctrl_Planner_TeleopStep(float dx, float dy, float dz);
 
 #ifdef __cplusplus
 }

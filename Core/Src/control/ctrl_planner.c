@@ -8,6 +8,7 @@
 #include "control/ctrl_kinematics.h"
 #include "control/ctrl_motion_engine.h"
 #include "common.h"
+#include "main.h"
 #include <stdlib.h>
 #include <math.h>
 
@@ -29,7 +30,7 @@ static float   s_cur_x      = 0.0f;
 static float   s_cur_y      = 0.0f;
 static float   s_cur_z      = 0.0f;
 
-void Ctrl_Planner_Init(float start_x, float start_y, float start_z)
+ErrorCode_t Ctrl_Planner_Init(float start_x, float start_y, float start_z)
 {
     s_cur_x = start_x;
     s_cur_y = start_y;
@@ -37,16 +38,32 @@ void Ctrl_Planner_Init(float start_x, float start_y, float start_z)
 
     RobotAngles_t    ang;
     RobotMotorUnits_t units;
-    Ctrl_Kinematics_Solve(start_x, start_y, start_z, &ang);
+    ErrorCode_t status = Ctrl_Kinematics_Solve(start_x, start_y, start_z, &ang);
+    if (status != ERR_OK) return status;
     Ctrl_Kinematics_ToMotorUnits(&ang, &units);
     s_planned_m1 = units.rot_units;
     s_planned_m2 = units.low_units;
     s_planned_m3 = units.high_units;
+    return ERR_OK;
 }
 
-bool Ctrl_Planner_MoveLine(float target_x, float target_y, float target_z,
-                           uint32_t duration_ms)
+static ErrorCode_t PushFrameWithTimeout(const MotionFrame_t *frame)
 {
+    uint32_t start = HAL_GetTick();
+    while (!Ctrl_MotionEngine_PushFrame(frame)) {
+        if (Ctrl_MotionEngine_HasFault()) return ERR_BUSY;
+        if ((HAL_GetTick() - start) >= PLANNER_QUEUE_TIMEOUT_MS) {
+            Ctrl_MotionEngine_EmergencyStopWithReason(MOTION_FAULT_QUEUE_TIMEOUT);
+            return ERR_TIMEOUT;
+        }
+    }
+    return ERR_OK;
+}
+
+ErrorCode_t Ctrl_Planner_MoveLine(float target_x, float target_y, float target_z,
+                                  uint32_t duration_ms)
+{
+    if (Ctrl_MotionEngine_HasFault()) return ERR_BUSY;
     const float sx = s_cur_x;
     const float sy = s_cur_y;
     const float sz = s_cur_z;
@@ -57,7 +74,7 @@ bool Ctrl_Planner_MoveLine(float target_x, float target_y, float target_z,
 
     if (dist < 0.1f) {
         s_cur_x = target_x; s_cur_y = target_y; s_cur_z = target_z;
-        return true;
+        return ERR_OK;
     }
 
     uint32_t total_ticks = duration_ms * TICKS_PER_MS;
@@ -70,7 +87,8 @@ bool Ctrl_Planner_MoveLine(float target_x, float target_y, float target_z,
 
     RobotAngles_t    fang;
     RobotMotorUnits_t funits;
-    Ctrl_Kinematics_Solve(target_x, target_y, target_z, &fang);
+    ErrorCode_t status = Ctrl_Kinematics_Solve(target_x, target_y, target_z, &fang);
+    if (status != ERR_OK) return status;
     Ctrl_Kinematics_ToMotorUnits(&fang, &funits);
 
     MotionFrame_t total_move = {
@@ -108,7 +126,8 @@ bool Ctrl_Planner_MoveLine(float target_x, float target_y, float target_z,
 
         RobotAngles_t    ta;
         RobotMotorUnits_t tu;
-        Ctrl_Kinematics_Solve(step_x, step_y, step_z, &ta);
+        status = Ctrl_Kinematics_Solve(step_x, step_y, step_z, &ta);
+        if (status != ERR_OK) return status;
         Ctrl_Kinematics_ToMotorUnits(&ta, &tu);
 
         MotionFrame_t frame = {
@@ -129,7 +148,8 @@ bool Ctrl_Planner_MoveLine(float target_x, float target_y, float target_z,
         if (remain < END_SLOW_SEGMENTS)
             frame.total_ticks += (END_SLOW_SEGMENTS - remain) * STOP_TAIL_EXTRA_TICKS;
 
-        while (!Ctrl_MotionEngine_PushFrame(&frame)) {}
+        status = PushFrameWithTimeout(&frame);
+        if (status != ERR_OK) return status;
 
         Ctrl_MotionEngine_AdjustTheorySteps(frame.delta_m1, frame.delta_m2, frame.delta_m3);
 
@@ -139,13 +159,14 @@ bool Ctrl_Planner_MoveLine(float target_x, float target_y, float target_z,
     }
 
     s_cur_x = target_x; s_cur_y = target_y; s_cur_z = target_z;
-    return true;
+    return ERR_OK;
 }
 
-bool Ctrl_Planner_TeleopStep(float dx, float dy, float dz)
+ErrorCode_t Ctrl_Planner_TeleopStep(float dx, float dy, float dz)
 {
+    if (Ctrl_MotionEngine_HasFault()) return ERR_BUSY;
     if (Ctrl_MotionEngine_GetQueueCount() >= 1U)
-        return false;
+        return ERR_BUSY;
 
     float tx = s_cur_x + dx;
     float ty = s_cur_y + dy;
@@ -153,7 +174,8 @@ bool Ctrl_Planner_TeleopStep(float dx, float dy, float dz)
 
     RobotAngles_t    ta;
     RobotMotorUnits_t tu;
-    Ctrl_Kinematics_Solve(tx, ty, tz, &ta);
+    ErrorCode_t status = Ctrl_Kinematics_Solve(tx, ty, tz, &ta);
+    if (status != ERR_OK) return status;
     Ctrl_Kinematics_ToMotorUnits(&ta, &tu);
 
     MotionFrame_t frame = {
@@ -164,14 +186,14 @@ bool Ctrl_Planner_TeleopStep(float dx, float dy, float dz)
     };
 
     if (frame.delta_m1 == 0 && frame.delta_m2 == 0 && frame.delta_m3 == 0)
-        return false;
+        return ERR_OK;
 
     uint32_t fd = Common_MaxAbs3(frame.delta_m1, frame.delta_m2, frame.delta_m3);
     if (fd > frame.total_ticks)
         frame.total_ticks = fd;
 
     if (!Ctrl_MotionEngine_PushFrame(&frame))
-        return false;
+        return Ctrl_MotionEngine_HasFault() ? ERR_BUSY : ERR_BUFFER_FULL;
 
     Ctrl_MotionEngine_AdjustTheorySteps(frame.delta_m1, frame.delta_m2, frame.delta_m3);
 
@@ -179,5 +201,5 @@ bool Ctrl_Planner_TeleopStep(float dx, float dy, float dz)
     s_planned_m2 = tu.low_units;
     s_planned_m3 = tu.high_units;
     s_cur_x = tx; s_cur_y = ty; s_cur_z = tz;
-    return true;
+    return ERR_OK;
 }

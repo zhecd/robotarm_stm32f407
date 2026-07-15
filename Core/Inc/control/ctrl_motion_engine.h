@@ -33,6 +33,13 @@ typedef struct {
     uint32_t total_ticks;       /* Duration in TIM6 ticks / TIM6 节拍时长 */
 } MotionFrame_t;
 
+typedef enum {
+    MOTION_FAULT_NONE = 0,
+    MOTION_FAULT_LIMIT_SWITCH,
+    MOTION_FAULT_ENCODER,
+    MOTION_FAULT_QUEUE_TIMEOUT
+} MotionFaultReason_t;
+
 void Ctrl_MotionEngine_Init(void);
 
 /** Push a frame into the ring buffer. Returns false if full. / 压入一帧到环形缓冲, 满时返回 false */
@@ -40,6 +47,17 @@ bool Ctrl_MotionEngine_PushFrame(const MotionFrame_t *frame);
 
 /** Clear all queued frames (emergency stop) / 清空所有排队帧 (急停) */
 void Ctrl_MotionEngine_Clear(void);
+
+/* Stops the active frame and discards queued frames.  A fault remains latched
+ * until it is explicitly cleared after a successful homing sequence. */
+void Ctrl_MotionEngine_EmergencyStop(void);
+void Ctrl_MotionEngine_EmergencyStopWithReason(MotionFaultReason_t reason);
+void Ctrl_MotionEngine_EnableLimitMonitoring(bool enabled);
+void Ctrl_MotionEngine_NotifyLimitSwitch(uint16_t gpio_pin);
+void Ctrl_MotionEngine_ServiceSafety(void);
+bool Ctrl_MotionEngine_HasFault(void);
+MotionFaultReason_t Ctrl_MotionEngine_GetFaultReason(void);
+void Ctrl_MotionEngine_ClearFault(void);
 
 bool     Ctrl_MotionEngine_IsRunning(void);       /* Motion in progress / 运动中 */
 uint16_t Ctrl_MotionEngine_GetQueueCount(void);   /* Queued frame count / 排队帧数 */

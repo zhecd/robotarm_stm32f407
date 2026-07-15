@@ -113,7 +113,9 @@ void MX_GPIO_Init(void)
   /*Configure GPIO pins : PCPin PCPin PCPin */
   GPIO_InitStruct.Pin = M1_STOP_Pin|M2_STOP_Pin|M3_STOP_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_IT_FALLING;
-  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  /* Limit switches are active-low contacts.  A pull-up prevents a floating
+     input from generating a false emergency stop. */
+  GPIO_InitStruct.Pull = GPIO_PULLUP;
   HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
 
   /*Configure GPIO pins : PDPin PDPin PDPin PDPin */

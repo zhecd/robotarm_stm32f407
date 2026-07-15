@@ -16,9 +16,10 @@ void Ctrl_Kinematics_Init(void)
     /* No pre-computation needed for this structure. / 此结构无需预计算。 */
 }
 
-void Ctrl_Kinematics_Solve(float x, float y, float z, RobotAngles_t *angles)
+ErrorCode_t Ctrl_Kinematics_Solve(float x, float y, float z, RobotAngles_t *angles)
 {
-    if (!angles) return;
+    if (!angles) return ERR_NULL_PARAM;
+    if (!isfinite(x) || !isfinite(y) || !isfinite(z)) return ERR_OUT_OF_RANGE;
 
     /* ── Coordinate transform: desktop → shoulder frame / 坐标变换: 桌面 → 肩部坐标系 ── */
     float zi = z - BASE_HEIGHT;
@@ -30,13 +31,14 @@ void Ctrl_Kinematics_Solve(float x, float y, float z, RobotAngles_t *angles)
     float r_target = sqrtf(x * x + y * y);
     float r_wrist  = r_target - TOOL_OFFSET_R;
     float z_wrist  = zi - TOOL_OFFSET_Z;
-    if (r_wrist < 1.0f) r_wrist = 1.0f;
+    if (r_wrist < 0.0f) return ERR_OUT_OF_RANGE;
 
     /* ── Standard 2-link IK (L1 == L2 = 140 mm, isosceles) / 标准二连杆逆解 (L1==L2=140mm, 等腰) ── */
     float dist_sq = r_wrist * r_wrist + z_wrist * z_wrist;
     float dist    = sqrtf(dist_sq);
-    if (dist > (LINK_1_LEN + LINK_2_LEN))
-        dist = LINK_1_LEN + LINK_2_LEN;
+    if (dist > (LINK_1_LEN + LINK_2_LEN) ||
+        dist < fabsf(LINK_1_LEN - LINK_2_LEN))
+        return ERR_OUT_OF_RANGE;
 
     float val      = dist / (2.0f * LINK_1_LEN);
     float alpha_rad = acosf(CLAMP(val, -1.0f, 1.0f));
@@ -56,6 +58,7 @@ void Ctrl_Kinematics_Solve(float x, float y, float z, RobotAngles_t *angles)
     angles->rot  = RAD_TO_DEG(angles->rot);
     angles->low  = RAD_TO_DEG(angles->low);
     angles->high = RAD_TO_DEG(angles->high);
+    return ERR_OK;
 }
 
 void Ctrl_Kinematics_ToMotorUnits(const RobotAngles_t *angles, RobotMotorUnits_t *units)

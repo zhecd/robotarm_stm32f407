@@ -18,6 +18,7 @@
 
 #include <math.h>
 #include <stdint.h>
+#include "error_code.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -38,7 +39,8 @@ typedef struct {
 void Ctrl_Kinematics_Init(void);
 
 /** Solve inverse kinematics for a Cartesian target / 逆运动学求解笛卡尔坐标目标 */
-void Ctrl_Kinematics_Solve(float x, float y, float z, RobotAngles_t *angles);
+/* Returns ERR_OUT_OF_RANGE when the target cannot be reached by the arm. */
+ErrorCode_t Ctrl_Kinematics_Solve(float x, float y, float z, RobotAngles_t *angles);
 
 /** Convert joint angles to motor step units / 关节角度转电机步数单位 */
 void Ctrl_Kinematics_ToMotorUnits(const RobotAngles_t *angles, RobotMotorUnits_t *units);

@@ -115,6 +115,14 @@ extern "C" {
 #define TELEOP_FRAME_MS         10U          /* Teleop frame duration (ms), must match PS2 poll / 遥控帧时长, 需与PS2轮询匹配 */
 #endif
 
+#ifndef PLANNER_QUEUE_TIMEOUT_MS
+#define PLANNER_QUEUE_TIMEOUT_MS 2000U       /* Queue wait timeout; timeout latches a safety stop. */
+#endif
+
+#ifndef CL_ENCODER_FAIL_LIMIT
+#define CL_ENCODER_FAIL_LIMIT   3U           /* Consecutive encoder failures before emergency stop. */
+#endif
+
 /* ═══════════════════════════════════════════════════════════════════════════
  * PID Closed-Loop Control / PID 闭环控制
  * ═══════════════════════════════════════════════════════════════════════════ */

@@ -8,13 +8,14 @@
 #define __APP_GCODE_EXEC_H__
 
 #include "app/app_gcode_parser.h"
+#include "error_code.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
 void App_GCodeExec_Init(float start_x, float start_y, float start_z);
-void App_GCodeExec_Run(const GCodeFrame_t *frame);
+ErrorCode_t App_GCodeExec_Run(const GCodeFrame_t *frame);
 
 #ifdef __cplusplus
 }
