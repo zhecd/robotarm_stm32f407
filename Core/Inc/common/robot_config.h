@@ -339,8 +339,9 @@ extern "C" {
 #endif
 
 #ifndef UART1_LINE_TIMEOUT_MS
-#define UART1_LINE_TIMEOUT_MS   50U          /* Line read timeout (ms) / 行读取超时 */
+#define UART1_LINE_TIMEOUT_MS   500U         /* Incomplete-line discard timeout (ms). */
 #endif
+
 
 #ifdef __cplusplus
 }

@@ -15,12 +15,6 @@ static void ResetFrame(GCodeFrame_t *f)
     f->has_x = false; f->has_y = false; f->has_z = false; f->has_f = false;
 }
 
-static void SkipNumeric(const char **c)
-{
-    while (**c && (isdigit((unsigned char)**c) || **c == '.' || **c == '-' || **c == '+'))
-        (*c)++;
-}
-
 bool App_GCodeParser_ParseLine(const char *line, GCodeFrame_t *frame)
 {
     if (!line || !frame) return false;
@@ -32,30 +26,48 @@ bool App_GCodeParser_ParseLine(const char *line, GCodeFrame_t *frame)
     while (*c) {
         if (isspace((unsigned char)*c)) { c++; continue; }
 
-        char letter = (char)toupper((unsigned char)*c);
-        c++;
+        char letter = (char)toupper((unsigned char)*c++);
+        char *end = NULL;
 
         switch (letter) {
         case 'G': {
-            int g = atoi(c);
+            long g = strtol(c, &end, 10);
+            if (end == c) return false;
             if (g == 0)      { frame->type = GCMD_G0; valid = true; }
             else if (g == 1) { frame->type = GCMD_G1; valid = true; }
-            break;
+            else return false;
+            c = end;
+            continue;
         }
         case 'M': {
-            int m = atoi(c);
+            long m = strtol(c, &end, 10);
+            if (end == c) return false;
             if (m == 3)      { frame->type = GCMD_M3; valid = true; }
             else if (m == 5) { frame->type = GCMD_M5; valid = true; }
-            break;
+            else return false;
+            c = end;
+            continue;
         }
-        case 'X': frame->x = strtof(c, NULL); frame->has_x = true; break;
-        case 'Y': frame->y = strtof(c, NULL); frame->has_y = true; break;
-        case 'Z': frame->z = strtof(c, NULL); frame->has_z = true; break;
-        case 'F': frame->f = (uint32_t)strtoul(c, NULL, 10); frame->has_f = true; break;
-        default: break;
+        case 'X':
+            frame->x = strtof(c, &end); if (end == c) return false;
+            frame->has_x = true; c = end; continue;
+        case 'Y':
+            frame->y = strtof(c, &end); if (end == c) return false;
+            frame->has_y = true; c = end; continue;
+        case 'Z':
+            frame->z = strtof(c, &end); if (end == c) return false;
+            frame->has_z = true; c = end; continue;
+        case 'F': {
+            unsigned long feed = strtoul(c, &end, 10);
+            if (end == c || feed == 0U) return false;
+            frame->f = (uint32_t)feed; frame->has_f = true; c = end; continue;
         }
-        SkipNumeric(&c);
+        default: return false;
+        }
     }
 
+    if ((frame->type == GCMD_M3 || frame->type == GCMD_M5) &&
+        (frame->has_x || frame->has_y || frame->has_z || frame->has_f))
+        return false;
     return valid;
 }

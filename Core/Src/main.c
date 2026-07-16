@@ -48,6 +48,7 @@
 #include "common/robot_config.h"
 
 #include <stdio.h>
+#include <ctype.h>
 
 /* Mode indicators: G-code uses LED0; PS2 teleoperation uses LED1. */
 #define MODE_LED_GCODE LED_0
@@ -151,7 +152,20 @@ static void Task_GCode(void)
     /* A second guard makes this task safe even if the mode changes between
        scheduler checks.  UART input is intentionally left unread in PS2 mode. */
     if (App_Teleop_GetMode() != SYS_MODE_GCODE) return;
+    if (BSP_UART1_TakeLineTimeout())
+        printf("error: incomplete command; CRLF required\r\n");
     if (!BSP_UART1_ReadLine(line, sizeof(line))) return;
+
+    /* Ignore empty/control-only frames left by terminal line-ending timing.
+       They are not G-code errors and must not produce a false alarm. */
+    bool has_printable = false;
+    for (const char *p = line; *p != '\0'; p++) {
+        if (isprint((unsigned char)*p)) {
+            has_printable = true;
+            break;
+        }
+    }
+    if (!has_printable) return;
 
     if (App_GCodeParser_ParseLine(line, &frame)) {
         ErrorCode_t status = App_GCodeExec_Run(&frame);

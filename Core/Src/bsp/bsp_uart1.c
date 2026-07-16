@@ -20,6 +20,7 @@ typedef struct {
 static RingBuf_t s_rx    = {0};
 static uint8_t   s_rx_byte   = 0U;
 static uint32_t  s_last_rx_tick = 0U;
+static volatile bool s_line_timeout = false;
 
 static void StartRxIT(void)
 {
@@ -31,12 +32,23 @@ void BSP_UART1_Init(void)
     s_rx.head = 0U;
     s_rx.tail = 0U;
     s_last_rx_tick = HAL_GetTick();
+    s_line_timeout = false;
     StartRxIT();
 }
 
 bool BSP_UART1_ReadLine(char *line, uint16_t max_len)
 {
     if (!line || max_len < 2U || s_rx.head == s_rx.tail)
+        return false;
+
+    /* A terminal commonly sends CRLF.  If CR is consumed before the UART
+       interrupt receives LF, the LF remains in the ring buffer and would be
+       parsed as a spurious empty command on the next call. */
+    while (s_rx.tail != s_rx.head &&
+           (s_rx.buffer[s_rx.tail] == '\r' || s_rx.buffer[s_rx.tail] == '\n')) {
+        s_rx.tail = (s_rx.tail + 1U) % UART1_RX_BUF_SIZE;
+    }
+    if (s_rx.head == s_rx.tail)
         return false;
 
     uint16_t read_idx  = s_rx.tail;
@@ -50,9 +62,12 @@ bool BSP_UART1_ReadLine(char *line, uint16_t max_len)
     }
 
     if (!found_end) {
-        if ((HAL_GetTick() - s_last_rx_tick) <= UART1_LINE_TIMEOUT_MS)
-            return false;
-        scan_idx = s_rx.head;
+        /* Strict protocol: only CR/LF-terminated lines are commands. */
+        if ((HAL_GetTick() - s_last_rx_tick) > UART1_LINE_TIMEOUT_MS) {
+            s_rx.tail = s_rx.head;
+            s_line_timeout = true;
+        }
+        return false;
     }
 
     uint16_t out_idx = 0U;
@@ -69,6 +84,13 @@ bool BSP_UART1_ReadLine(char *line, uint16_t max_len)
 
     s_rx.tail = read_idx;
     return true;
+}
+
+bool BSP_UART1_TakeLineTimeout(void)
+{
+    bool timed_out = s_line_timeout;
+    s_line_timeout = false;
+    return timed_out;
 }
 
 void BSP_UART1_RxCallback(void)
