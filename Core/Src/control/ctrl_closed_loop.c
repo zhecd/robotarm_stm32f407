@@ -153,7 +153,6 @@ void Ctrl_ClosedLoop_SyncTarget(void)
 
         if (s_axis[i].encoder) {
             UpdateEncoder(&s_axis[i]);
-            BSP_AS5600_SyncTurn(s_axis[i].encoder, s_axis[i].target_deg);
         }
     }
 }

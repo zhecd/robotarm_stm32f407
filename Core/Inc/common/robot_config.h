@@ -209,6 +209,10 @@ extern "C" {
 #define COMP_WATCHDOG_ROUNDS    30           /* Max compensation iterations / 最大补偿迭代次数 */
 #endif
 
+#ifndef COMP_WAIT_TIMEOUT_MS
+#define COMP_WAIT_TIMEOUT_MS    3000U        /* Maximum wait for one compensation frame. */
+#endif
+
 /* ═══════════════════════════════════════════════════════════════════════════
  * Homing / 回零
  * ═══════════════════════════════════════════════════════════════════════════ */

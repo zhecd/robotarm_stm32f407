@@ -27,6 +27,7 @@ extern "C" {
 #define AS5600_ADDR_WRITE       0x6CU           /* I2C write address / I2C 写地址 */
 #define AS5600_REG_RAW_ANGLE    0x0CU           /* Raw angle register / 原始角度寄存器 */
 #define AS5600_AVG_SAMPLES      5               /* Averaging sample count / 平均采样次数 */
+#define AS5600_I2C_TIMEOUT_MS   10U             /* Bound a failed sensor read. */
 
 typedef struct {
     I2C_HandleTypeDef *hi2c;                /* I2C handle / I2C 句柄 */

@@ -19,16 +19,31 @@
 #include <math.h>
 #include <stdio.h>
 
+static bool WaitForMotionIdle(uint32_t timeout_ms)
+{
+    uint32_t start = HAL_GetTick();
+    while (Ctrl_MotionEngine_IsRunning() || Ctrl_MotionEngine_GetQueueCount() > 0U) {
+        if (Ctrl_MotionEngine_HasFault() ||
+            (HAL_GetTick() - start) >= timeout_ms)
+            return false;
+    }
+    return true;
+}
+
 void Ctrl_Compensation_Execute(void)
 {
     /* Wait for planner queue to drain while tracking multi-turn wraps.
        Sampling encoders during the wait prevents Nyquist violations
        from long motion gaps. / 等待运动队列清空, 同时跟踪多圈。
        期间持续采样编码器, 防止长运动间隙导致跨圈丢失。 */
+    uint32_t wait_start = HAL_GetTick();
     while (Ctrl_MotionEngine_IsRunning() || Ctrl_MotionEngine_GetQueueCount() > 0) {
         Ctrl_ClosedLoop_GetAxisAngle(0, &(float){0});
         Ctrl_ClosedLoop_GetAxisAngle(1, &(float){0});
         Ctrl_ClosedLoop_GetAxisAngle(2, &(float){0});
+        if (Ctrl_MotionEngine_HasFault() ||
+            (HAL_GetTick() - wait_start) >= COMP_WAIT_TIMEOUT_MS)
+            return;
     }
     HAL_Delay(50);
 
@@ -104,8 +119,8 @@ void Ctrl_Compensation_Execute(void)
         if (cf.total_ticks < COMP_MIN_TICKS)
             cf.total_ticks = COMP_MIN_TICKS;
 
-        Ctrl_MotionEngine_PushFrame(&cf);
-        while (Ctrl_MotionEngine_IsRunning() || Ctrl_MotionEngine_GetQueueCount() > 0) {}
+        if (!Ctrl_MotionEngine_PushFrame(&cf)) return;
+        if (!WaitForMotionIdle(COMP_WAIT_TIMEOUT_MS)) return;
         HAL_Delay(30);
     }
 }

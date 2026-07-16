@@ -110,6 +110,19 @@ ErrorCode_t Ctrl_Planner_MoveLine(float target_x, float target_y, float target_z
     if (seg_motor > segments) segments = seg_motor;
     if (segments  == 0U)     segments = 1U;
 
+    /* Validate the whole Cartesian path before queuing any frame.  This
+       prevents a partially executed move if an intermediate point crosses an
+       unreachable region. */
+    for (uint32_t i = 1; i <= segments; i++) {
+        float progress = Smoothstep((float)i / (float)segments);
+        RobotAngles_t check_angles;
+        status = Ctrl_Kinematics_Solve(sx + dx * progress,
+                                       sy + dy * progress,
+                                       sz + dz * progress,
+                                       &check_angles);
+        if (status != ERR_OK) return status;
+    }
+
     uint32_t prev_tick = 0U;
 
     for (uint32_t i = 1; i <= segments; i++) {

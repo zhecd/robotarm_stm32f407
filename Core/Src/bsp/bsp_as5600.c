@@ -22,7 +22,7 @@ static float ReadRawDeg(AS5600_Dev_t *enc)
 {
     uint8_t data[2];
     if (HAL_I2C_Mem_Read(enc->hi2c, AS5600_ADDR_WRITE, AS5600_REG_RAW_ANGLE,
-                         I2C_MEMADD_SIZE_8BIT, data, 2, 100) != HAL_OK)
+                         I2C_MEMADD_SIZE_8BIT, data, 2, AS5600_I2C_TIMEOUT_MS) != HAL_OK)
         return -1.0f;
     uint16_t raw = (((uint16_t)data[0] << 8) | data[1]) & 0x0FFFU;
     return (float)raw * 360.0f / 4096.0f;
@@ -35,12 +35,11 @@ static float ReadAvgDeg(AS5600_Dev_t *enc)
     int   valid = 0;
     for (int i = 0; i < AS5600_AVG_SAMPLES; i++) {
         float val = ReadRawDeg(enc);
-        if (val >= 0.0f) {
-            float rad = val * M_PI / 180.0f;
-            sum_sin += sinf(rad);
-            sum_cos += cosf(rad);
-            valid++;
-        }
+        if (val < 0.0f) return -1.0f;
+        float rad = val * M_PI / 180.0f;
+        sum_sin += sinf(rad);
+        sum_cos += cosf(rad);
+        valid++;
     }
     if (valid == 0) return -1.0f;
     float avg = atan2f(sum_sin, sum_cos) * 180.0f / M_PI;
