@@ -20,6 +20,9 @@ typedef struct {
 static RingBuf_t s_rx    = {0};
 static uint32_t  s_last_rx_tick = 0U;
 static volatile bool s_line_timeout = false;
+static volatile uint32_t s_dma_wrap_count = 0U;
+static uint32_t s_observed_wrap_count = 0U;
+static volatile bool s_rx_overflow = false;
 
 static void StartRxDMA(void)
 {
@@ -28,15 +31,26 @@ static void StartRxDMA(void)
 
 static void RefreshRxHead(void)
 {
+    uint16_t previous_pos = s_rx.head;
     uint16_t dma_pos = (uint16_t)(UART1_RX_BUF_SIZE -
                                   __HAL_DMA_GET_COUNTER(huart1.hdmarx));
     if (dma_pos >= UART1_RX_BUF_SIZE)
         dma_pos = 0U;
 
-    if (dma_pos != s_rx.head) {
-        s_rx.head = dma_pos;
+    uint32_t wraps = s_dma_wrap_count;
+    int32_t produced = (int32_t)((wraps - s_observed_wrap_count) * UART1_RX_BUF_SIZE)
+                     + (int32_t)dma_pos - (int32_t)previous_pos;
+
+    if (produced >= (int32_t)UART1_RX_BUF_SIZE) {
+        s_rx.tail = dma_pos;
+        s_rx_overflow = true;
+        s_line_timeout = false;
+    }
+    if (produced > 0) {
         s_last_rx_tick = HAL_GetTick();
     }
+    s_rx.head = dma_pos;
+    s_observed_wrap_count = wraps;
 }
 
 void BSP_UART1_Init(void)
@@ -45,6 +59,9 @@ void BSP_UART1_Init(void)
     s_rx.tail = 0U;
     s_last_rx_tick = HAL_GetTick();
     s_line_timeout = false;
+    s_dma_wrap_count = 0U;
+    s_observed_wrap_count = 0U;
+    s_rx_overflow = false;
     (void)HAL_UART_AbortReceive(&huart1);
     StartRxDMA();
 }
@@ -107,6 +124,21 @@ bool BSP_UART1_TakeLineTimeout(void)
     return timed_out;
 }
 
+bool BSP_UART1_TakeRxOverflow(void)
+{
+    bool overflow = s_rx_overflow;
+    s_rx_overflow = false;
+    return overflow;
+}
+
+void BSP_UART1_DiscardRx(void)
+{
+    RefreshRxHead();
+    s_rx.tail = s_rx.head;
+    s_line_timeout = false;
+    s_rx_overflow = false;
+}
+
 void BSP_UART1_RxCallback(void)
 {
     /* Circular DMA owns the buffer; this callback only refreshes its cursor. */
@@ -116,7 +148,7 @@ void BSP_UART1_RxCallback(void)
 void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 {
     if (huart->Instance == USART1)
-        BSP_UART1_RxCallback();
+        s_dma_wrap_count++;
 }
 
 void HAL_UART_ErrorCallback(UART_HandleTypeDef *huart)

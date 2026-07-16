@@ -10,7 +10,7 @@
 #include "error_code.h"
 #include <stdio.h>
 
-void App_Calibration_Execute(void)
+bool App_Calibration_Execute(void)
 {
     Ctrl_MotionEngine_ResetTheorySteps();
 
@@ -35,7 +35,9 @@ void App_Calibration_Execute(void)
        may still work for relative positioning and multi-turn tracking.
        无论校准是否成功都启用所有轴。SetZero 失败仅表示零点未设置,
        编码器仍可用于相对定位和多圈追踪。 */
-    Ctrl_ClosedLoop_SetAxisEnabled(0, true);
-    Ctrl_ClosedLoop_SetAxisEnabled(1, true);
-    Ctrl_ClosedLoop_SetAxisEnabled(2, true);
+    bool success = (ok1 == ERR_OK && ok2 == ERR_OK && ok3 == ERR_OK);
+    Ctrl_ClosedLoop_SetAxisEnabled(0, success);
+    Ctrl_ClosedLoop_SetAxisEnabled(1, success);
+    Ctrl_ClosedLoop_SetAxisEnabled(2, success);
+    return success;
 }

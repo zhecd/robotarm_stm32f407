@@ -12,11 +12,13 @@
 #ifndef __APP_CALIBRATION_H__
 #define __APP_CALIBRATION_H__
 
+#include <stdbool.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-void App_Calibration_Execute(void);
+bool App_Calibration_Execute(void);
 
 #ifdef __cplusplus
 }

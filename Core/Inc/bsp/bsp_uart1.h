@@ -22,6 +22,8 @@ extern "C" {
 void BSP_UART1_Init(void);
 bool BSP_UART1_ReadLine(char *line, uint16_t max_len);
 bool BSP_UART1_TakeLineTimeout(void);
+bool BSP_UART1_TakeRxOverflow(void);
+void BSP_UART1_DiscardRx(void);
 void BSP_UART1_RxCallback(void);
 void BSP_UART1_SendString(const char *str);
 

@@ -104,9 +104,20 @@ void Ctrl_MotionEngine_NotifyLimitSwitch(uint16_t gpio_pin)
 
 void Ctrl_MotionEngine_ServiceSafety(void)
 {
+    uint32_t primask = __get_PRIMASK();
+    __disable_irq();
     uint16_t pending = s_pending_limit_pins;
-    if (pending == 0U || (HAL_GetTick() - s_limit_event_ms) < 10U) return;
-    s_pending_limit_pins = 0U;
+    uint32_t event_ms = s_limit_event_ms;
+    __set_PRIMASK(primask);
+
+    if (pending == 0U || (HAL_GetTick() - event_ms) < 10U) return;
+
+    /* Atomically consume the snapshot; events on other pins that arrive
+       concurrently remain pending for the next service cycle. */
+    primask = __get_PRIMASK();
+    __disable_irq();
+    s_pending_limit_pins &= (uint16_t)~pending;
+    __set_PRIMASK(primask);
 
     bool active = false;
     if ((pending & M1_STOP_Pin) && HAL_GPIO_ReadPin(M1_STOP_GPIO_Port, M1_STOP_Pin) == GPIO_PIN_RESET)

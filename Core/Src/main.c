@@ -154,6 +154,8 @@ static void Task_GCode(void)
     if (App_Teleop_GetMode() != SYS_MODE_GCODE && !Ctrl_MotionEngine_HasFault()) return;
     if (BSP_UART1_TakeLineTimeout())
         printf("error: incomplete command; CRLF required\r\n");
+    if (BSP_UART1_TakeRxOverflow())
+        printf("error: UART RX overflow; command discarded\r\n");
     if (!BSP_UART1_ReadLine(line, sizeof(line))) return;
 
     /* Ignore empty/control-only frames left by terminal line-ending timing.
@@ -186,7 +188,11 @@ static void Task_GCode(void)
         }
         App_GCodeExec_Init(0.0f, 185.0f, 240.0f);
         Ctrl_ClosedLoop_Init();
-        App_Calibration_Execute();
+        if (!App_Calibration_Execute()) {
+            Ctrl_MotionEngine_EmergencyStopWithReason(MOTION_FAULT_ENCODER);
+            printf("error: M999 encoder calibration failed\r\n");
+            return;
+        }
         Ctrl_MotionEngine_ClearFault();
         Ctrl_MotionEngine_EnableLimitMonitoring(true);
         printf("M999OK\r\n");
@@ -349,7 +355,13 @@ int main(void)
   /* ── Application layer ── */
   App_Teleop_Init();
   Ctrl_ClosedLoop_Init();
-  App_Calibration_Execute();
+  if (!App_Calibration_Execute()) {
+      printf("error: encoder calibration failed; motion disabled\r\n");
+      BSP_Stepper_Enable(BSP_Stepper_GetM1(), false);
+      BSP_Stepper_Enable(BSP_Stepper_GetM2(), false);
+      BSP_Stepper_Enable(BSP_Stepper_GetM3(), false);
+      Error_Handler();
+  }
   Ctrl_MotionEngine_ClearFault();
   Ctrl_MotionEngine_EnableLimitMonitoring(true);
 
@@ -389,6 +401,11 @@ int main(void)
       App_Teleop_Task();
       SystemMode_t mode = App_Teleop_GetMode();
       UpdateModeIndicator(mode);
+
+      /* G-code is disabled in PS2 mode.  Discard bytes received in this
+         mode so a stale command cannot run after switching back. */
+      if (mode == SYS_MODE_PS2)
+          BSP_UART1_DiscardRx();
 
       if (mode == SYS_MODE_GCODE) {
           Task_EncoderReport();
