@@ -22,6 +22,7 @@ typedef enum {
     GCMD_UNKNOWN = -1,      /* Unknown command / 未知指令 */
     GCMD_G0 = 0,            /* Rapid linear move / 快速直线移动 */
     GCMD_G1 = 1,            /* Linear move with feedrate / 带进给速度直线移动 */
+    GCMD_M999,              /* Fault recovery: re-home and recalibrate. */
     GCMD_M3 = 3,            /* Gripper open / 夹爪张开 */
     GCMD_M5 = 5             /* Gripper close / 夹爪闭合 */
 } GCodeType_t;

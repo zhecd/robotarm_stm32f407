@@ -6,6 +6,7 @@
 
 #include "control/ctrl_kinematics.h"
 #include "common.h"
+#include <stdbool.h>
 
 #ifndef M_PI
 #define M_PI  3.14159265358979323846f
@@ -14,6 +15,18 @@
 void Ctrl_Kinematics_Init(void)
 {
     /* No pre-computation needed for this structure. / 此结构无需预计算。 */
+}
+
+static bool AnglesWithinJointLimits(const RobotAngles_t *angles)
+{
+#if JOINT_LIMITS_ENABLED
+    return angles->rot  >= ROT_MIN_DEG  && angles->rot  <= ROT_MAX_DEG &&
+           angles->low  >= LOW_MIN_DEG  && angles->low  <= LOW_MAX_DEG &&
+           angles->high >= HIGH_MIN_DEG && angles->high <= HIGH_MAX_DEG;
+#else
+    (void)angles;
+    return true;
+#endif
 }
 
 ErrorCode_t Ctrl_Kinematics_Solve(float x, float y, float z, RobotAngles_t *angles)
@@ -58,6 +71,7 @@ ErrorCode_t Ctrl_Kinematics_Solve(float x, float y, float z, RobotAngles_t *angl
     angles->rot  = RAD_TO_DEG(angles->rot);
     angles->low  = RAD_TO_DEG(angles->low);
     angles->high = RAD_TO_DEG(angles->high);
+    if (!AnglesWithinJointLimits(angles)) return ERR_OUT_OF_RANGE;
     return ERR_OK;
 }
 

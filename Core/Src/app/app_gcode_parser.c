@@ -44,6 +44,7 @@ bool App_GCodeParser_ParseLine(const char *line, GCodeFrame_t *frame)
             if (end == c) return false;
             if (m == 3)      { frame->type = GCMD_M3; valid = true; }
             else if (m == 5) { frame->type = GCMD_M5; valid = true; }
+            else if (m == 999) { frame->type = GCMD_M999; valid = true; }
             else return false;
             c = end;
             continue;

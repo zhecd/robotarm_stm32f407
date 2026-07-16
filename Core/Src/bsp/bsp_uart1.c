@@ -18,13 +18,25 @@ typedef struct {
 } RingBuf_t;
 
 static RingBuf_t s_rx    = {0};
-static uint8_t   s_rx_byte   = 0U;
 static uint32_t  s_last_rx_tick = 0U;
 static volatile bool s_line_timeout = false;
 
-static void StartRxIT(void)
+static void StartRxDMA(void)
 {
-    HAL_UART_Receive_IT(&huart1, &s_rx_byte, 1U);
+    (void)HAL_UART_Receive_DMA(&huart1, s_rx.buffer, UART1_RX_BUF_SIZE);
+}
+
+static void RefreshRxHead(void)
+{
+    uint16_t dma_pos = (uint16_t)(UART1_RX_BUF_SIZE -
+                                  __HAL_DMA_GET_COUNTER(huart1.hdmarx));
+    if (dma_pos >= UART1_RX_BUF_SIZE)
+        dma_pos = 0U;
+
+    if (dma_pos != s_rx.head) {
+        s_rx.head = dma_pos;
+        s_last_rx_tick = HAL_GetTick();
+    }
 }
 
 void BSP_UART1_Init(void)
@@ -33,11 +45,13 @@ void BSP_UART1_Init(void)
     s_rx.tail = 0U;
     s_last_rx_tick = HAL_GetTick();
     s_line_timeout = false;
-    StartRxIT();
+    (void)HAL_UART_AbortReceive(&huart1);
+    StartRxDMA();
 }
 
 bool BSP_UART1_ReadLine(char *line, uint16_t max_len)
 {
+    RefreshRxHead();
     if (!line || max_len < 2U || s_rx.head == s_rx.tail)
         return false;
 
@@ -95,13 +109,8 @@ bool BSP_UART1_TakeLineTimeout(void)
 
 void BSP_UART1_RxCallback(void)
 {
-    uint16_t next = (s_rx.head + 1U) % UART1_RX_BUF_SIZE;
-    if (next != s_rx.tail) {
-        s_rx.buffer[s_rx.head] = s_rx_byte;
-        s_rx.head = next;
-        s_last_rx_tick = HAL_GetTick();
-    }
-    StartRxIT();
+    /* Circular DMA owns the buffer; this callback only refreshes its cursor. */
+    RefreshRxHead();
 }
 
 void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
@@ -114,7 +123,8 @@ void HAL_UART_ErrorCallback(UART_HandleTypeDef *huart)
 {
     if (huart->Instance == USART1) {
         __HAL_UART_CLEAR_OREFLAG(huart);
-        StartRxIT();
+        (void)HAL_UART_AbortReceive(huart);
+        StartRxDMA();
     }
 }
 

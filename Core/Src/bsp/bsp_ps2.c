@@ -123,6 +123,8 @@ bool BSP_PS2_ReadData(PS2_Data_t *data)
 
     /* Critical section: prevent TIM6 (50 kHz) from corrupting bit-bang timing.
        CS-low ≈ 100 µs → ~5 missed TIM6 ticks. */
+    /* Keep UART and limit interrupts alive; only pause the 50 kHz tick. */
+    /* Keep the complete software-timed PS2 frame atomic. UART RX is DMA-backed. */
     __disable_irq();
 
     CS_Write(GPIO_PIN_RESET);

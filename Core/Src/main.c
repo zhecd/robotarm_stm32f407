@@ -151,7 +151,7 @@ static void Task_GCode(void)
 
     /* A second guard makes this task safe even if the mode changes between
        scheduler checks.  UART input is intentionally left unread in PS2 mode. */
-    if (App_Teleop_GetMode() != SYS_MODE_GCODE) return;
+    if (App_Teleop_GetMode() != SYS_MODE_GCODE && !Ctrl_MotionEngine_HasFault()) return;
     if (BSP_UART1_TakeLineTimeout())
         printf("error: incomplete command; CRLF required\r\n");
     if (!BSP_UART1_ReadLine(line, sizeof(line))) return;
@@ -166,6 +166,32 @@ static void Task_GCode(void)
         }
     }
     if (!has_printable) return;
+
+    if (App_GCodeParser_ParseLine(line, &frame) && frame.type == GCMD_M999) {
+        if (!Ctrl_MotionEngine_HasFault()) {
+            printf("error: M999 requires a safety fault\r\n");
+            return;
+        }
+        Ctrl_MotionEngine_EnableLimitMonitoring(false);
+        if (!BSP_Homing_Execute()) {
+            Ctrl_MotionEngine_EmergencyStopWithReason(MOTION_FAULT_NONE);
+            printf("error: M999 homing failed\r\n");
+            return;
+        }
+        Ctrl_MotionEngine_Init();
+        if (Ctrl_Planner_Init(0.0f, 185.0f, 240.0f) != ERR_OK) {
+            Ctrl_MotionEngine_EmergencyStopWithReason(MOTION_FAULT_NONE);
+            printf("error: M999 planner reset failed\r\n");
+            return;
+        }
+        App_GCodeExec_Init(0.0f, 185.0f, 240.0f);
+        Ctrl_ClosedLoop_Init();
+        App_Calibration_Execute();
+        Ctrl_MotionEngine_ClearFault();
+        Ctrl_MotionEngine_EnableLimitMonitoring(true);
+        printf("M999OK\r\n");
+        return;
+    }
 
     if (App_GCodeParser_ParseLine(line, &frame)) {
         ErrorCode_t status = App_GCodeExec_Run(&frame);
@@ -355,8 +381,7 @@ int main(void)
              remains rejected by the faulted motion engine. */
           Task_ModeSwitch();
           Ctrl_Gripper_IdleStop();
-          if (App_Teleop_GetMode() == SYS_MODE_GCODE)
-              Task_GCode();
+          Task_GCode();
           continue;
       }
       fault_reported = false;

@@ -75,6 +75,31 @@ extern "C" {
 #define OFFSET_HIGH             0.0f         /* Elbow joint offset (deg) / 肘关节偏置 */
 #endif
 
+/* Software joint limits.  Fill these values from measured safe joint ranges
+ * after homing; do not enable this feature with guessed mechanical limits. */
+#ifndef JOINT_LIMITS_ENABLED
+#define JOINT_LIMITS_ENABLED     1U
+#endif
+
+#ifndef ROT_MIN_DEG
+#define ROT_MIN_DEG              -87.0f
+#endif
+#ifndef ROT_MAX_DEG
+#define ROT_MAX_DEG               97.0f
+#endif
+#ifndef LOW_MIN_DEG
+#define LOW_MIN_DEG              -28.0f
+#endif
+#ifndef LOW_MAX_DEG
+#define LOW_MAX_DEG               87.0f
+#endif
+#ifndef HIGH_MIN_DEG
+#define HIGH_MIN_DEG             -77.0f
+#endif
+#ifndef HIGH_MAX_DEG
+#define HIGH_MAX_DEG               2.0f
+#endif
+
 /* ═══════════════════════════════════════════════════════════════════════════
  * Motion Planner / 轨迹规划器
  * ═══════════════════════════════════════════════════════════════════════════ */
