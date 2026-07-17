@@ -7,6 +7,7 @@
 #include "service/control/ctrl_motion_engine.h"
 #include "device/dev_joint.h"
 #include "device/dev_limit_switch.h"
+#include "safety_service.h"
 #include "robot_config.h"
 #include <stdio.h>
 #include <stdlib.h>
@@ -125,7 +126,7 @@ void Ctrl_MotionEngine_ServiceSafety(void)
                   Dev_LimitSwitch_IsPinTriggered(pending & M2_STOP_Pin) ||
                   Dev_LimitSwitch_IsPinTriggered(pending & M3_STOP_Pin);
     if (active)
-        Ctrl_MotionEngine_EmergencyStopWithReason(MOTION_FAULT_LIMIT_SWITCH);
+        SafetyService_ReportLimitSwitch();
 }
 
 bool Ctrl_MotionEngine_HasFault(void)
@@ -184,9 +185,9 @@ void Ctrl_MotionEngine_AdjustTheorySteps(int32_t dm1, int32_t dm2, int32_t dm3)
 
 /* 閳光偓閳光偓 TIM6 ISR: Bresenham step generation / TIM6 娑擃厽鏌? Bresenham 濮濄儴绻橀悽鐔稿灇 閳光偓閳光偓 */
 
-void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
+void Ctrl_MotionEngine_OnStepTickFromISR(void)
 {
-    if (htim->Instance != TIM6 || s_faulted) return;
+    if (s_faulted) return;
 
     if (!s_running) {
         if (!PopFrame(&s_cur_frame)) return;

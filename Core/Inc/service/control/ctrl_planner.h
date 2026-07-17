@@ -23,10 +23,15 @@ extern "C" {
 ErrorCode_t Ctrl_Planner_Init(float start_x, float start_y, float start_z);
 
 /** Plan and queue a straight-line move / 瑙勫垝骞舵帓闃熺洿绾胯繍�?*/
+/* Returns ERR_PENDING for a nonzero-length move.  Path validation and frame
+ * generation are advanced by Ctrl_Planner_Service() without blocking. */
 ErrorCode_t Ctrl_Planner_MoveLine(float target_x, float target_y, float target_z, uint32_t duration_ms);
 
 /** Single step for teleop joystick control / 閬ユ帶鎽囨潌鍗曟绉诲姩 */
 ErrorCode_t Ctrl_Planner_TeleopStep(float dx, float dy, float dz);
+void Ctrl_Planner_Service(void);
+bool Ctrl_Planner_IsBusy(void);
+bool Ctrl_Planner_TakeStartResult(ErrorCode_t *out_result);
 
 #ifdef __cplusplus
 }

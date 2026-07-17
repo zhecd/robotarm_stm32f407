@@ -1,20 +1,31 @@
 /**
- * @file    bsp_homing.h
- * @brief   Limit-switch-based homing sequence with back-off / 閸╄桨绨梽鎰秴瀵偓閸忓磭娈戦崶鐐烘祩鎼村繐鍨?(鐟欙妇顫?閸ョ偤鈧偓)
- * @ingroup bsp
+ * @file    svc_homing.h
+ * @brief   Non-blocking limit-switch homing state machine.
+ * @ingroup service
  */
 
 #ifndef __BSP_HOMING_H__
 #define __BSP_HOMING_H__
 
 #include <stdbool.h>
+#include <stdint.h>
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-/** Execute full homing sequence / 閹笛嗩攽鐎瑰本鏆ｉ崶鐐烘祩鎼村繐鍨?*/
-bool Svc_Homing_Execute(void);
+typedef enum {
+    SVC_HOMING_IDLE = 0,
+    SVC_HOMING_SEEK,
+    SVC_HOMING_BACKOFF,
+    SVC_HOMING_COMPLETE,
+    SVC_HOMING_FAILED
+} SvcHomingState_t;
+
+bool Svc_Homing_Start(void);
+void Svc_Homing_Step(void);
+SvcHomingState_t Svc_Homing_GetState(void);
+bool Svc_Homing_IsFinished(void);
 
 #ifdef __cplusplus
 }

@@ -6,7 +6,10 @@
 
 #include "service/control/ctrl_closed_loop.h"
 #include "service/control/ctrl_motion_engine.h"
+#include "safety_service.h"
+#include "state_service.h"
 #include "device/dev_joint.h"
+#include "robot_home_pose.h"
 #include "robot_math.h"
 #include "error_code.h"
 #include <math.h>
@@ -41,16 +44,22 @@ static bool UpdateEncoder(int axis)
     if (Dev_Joint_ReadMotorAngle((DevJointId_t)axis, &motor_angle_deg) == ERR_OK) {
 #if JOINT_LIMITS_ENABLED
         if (!Dev_Joint_IsWithinSoftLimit((DevJointId_t)axis, motor_angle_deg)) {
-            Ctrl_MotionEngine_EmergencyStopWithReason(MOTION_FAULT_SOFT_LIMIT);
+            StateService_PublishAxisSample((uint8_t)axis, motor_angle_deg,
+                RobotHomePose_MotorDegToJointDeg((RobotHomeAxis_t)axis, motor_angle_deg));
+            SafetyService_ReportSoftLimit();
             return false;
         }
 #endif
         ax->motor_angle_deg = motor_angle_deg;
         ax->read_failures = 0U;
+        StateService_PublishAxisSample((uint8_t)axis, motor_angle_deg,
+            RobotHomePose_MotorDegToJointDeg((RobotHomeAxis_t)axis, motor_angle_deg));
         return true;
     }
-    if (++ax->read_failures >= CL_ENCODER_FAIL_LIMIT)
-        Ctrl_MotionEngine_EmergencyStopWithReason(MOTION_FAULT_ENCODER);
+    ax->read_failures++;
+    StateService_PublishAxisReadFailure((uint8_t)axis, ax->read_failures);
+    if (ax->read_failures >= CL_ENCODER_FAIL_LIMIT)
+        SafetyService_ReportEncoderFailure();
     return false;
 }
 

@@ -6,8 +6,8 @@
 #include "app/app_teleop.h"
 #include "service/svc_gripper.h"
 #include "device/dev_input.h"
-#include "service/control/ctrl_planner.h"
-#include "service/control/ctrl_motion_engine.h"
+#include "command_service.h"
+#include "motion_service.h"
 #include "robot_config.h"
 #include <stdio.h>
 #include <stdlib.h>
@@ -23,8 +23,8 @@ void         App_Teleop_ToggleMode(void)       { s_mode = (s_mode == SYS_MODE_GC
 
 static void StopMotion(void)
 {
-    if (Ctrl_MotionEngine_GetQueueCount() > 0U)
-        Ctrl_MotionEngine_Clear();
+    if (MotionService_GetQueueCount() > 0U)
+        MotionService_ClearQueuedFrames();
 }
 
 void App_Teleop_Init(void)
@@ -72,7 +72,7 @@ void App_Teleop_Task(void)
         if (abs(jry) > JOYSTICK_DEADZONE) dz = (jry / 128.0f) * TELEOP_MAX_STEP_MM;
 
         if (dx != 0.0f || dy != 0.0f || dz != 0.0f) {
-            Ctrl_Planner_TeleopStep(dx, dy, dz);
+            (void)CommandService_RunTeleopStep(dx, dy, dz);
         } else {
             StopMotion();
         }

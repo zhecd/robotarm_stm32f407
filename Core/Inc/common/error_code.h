@@ -17,6 +17,8 @@ extern "C" {
 
 /** Standardized error codes. ERR_OK = 0 for truthiness. / 鏍囧噯鍖栭敊璇�? ERR_OK=0 渚夸簬鐪熷€煎垽�?*/
 typedef enum {
+    /* Command accepted; its asynchronous validation is still in progress. */
+    ERR_PENDING         =  1,
     ERR_OK              =  0,    /* Success / 鎴愬�?*/
     ERR_NULL_PARAM      = -1,    /* Null pointer parameter / 绌烘寚閽堝弬�?*/
     ERR_I2C_FAIL        = -2,    /* I2C communication failure / I2C 閫氫俊澶辫触 */

@@ -269,7 +269,7 @@ extern "C" {
  * 鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺?*/
 
 #ifndef HOMING_STEP_DELAY_US
-#define HOMING_STEP_DELAY_US    200          /* Step pulse delay (us) / 姝ヨ繘鑴夊啿寤舵�?*/
+#define HOMING_STEP_DELAY_US    800          /* Homing step interval (us): 1/4 of the previous seek/backoff speed. */
 #endif
 
 #ifndef HOMING_MAX_STEPS

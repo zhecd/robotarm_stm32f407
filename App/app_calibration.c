@@ -5,15 +5,15 @@
  */
 
 #include "app/app_calibration.h"
-#include "service/control/ctrl_motion_engine.h"
 #include "service/control/ctrl_closed_loop.h"
+#include "motion_service.h"
 #include "os/os_adapter.h"
 #include "error_code.h"
 #include <stdio.h>
 
 bool App_Calibration_Execute(void)
 {
-    Ctrl_MotionEngine_ResetTheorySteps();
+    MotionService_ResetTheorySteps();
 
     /* Retry calibration up to 3 times in case of transient I2C failure.
        閲嶈瘯鏈€澶?3 �? 闃叉�?I2C 鐬€佹晠闅滃鑷磋鍒ゃ€?*/

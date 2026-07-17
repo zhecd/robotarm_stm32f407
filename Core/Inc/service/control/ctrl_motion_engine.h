@@ -67,6 +67,9 @@ void Ctrl_MotionEngine_GetTheorySteps(int32_t *m1, int32_t *m2, int32_t *m3);
 void Ctrl_MotionEngine_ResetTheorySteps(void);
 void Ctrl_MotionEngine_AdjustTheorySteps(int32_t dm1, int32_t dm2, int32_t dm3);
 
+/** Execute one 50 kHz step tick.  Only the App ISR adapter may call this. */
+void Ctrl_MotionEngine_OnStepTickFromISR(void);
+
 #ifdef __cplusplus
 }
 #endif
