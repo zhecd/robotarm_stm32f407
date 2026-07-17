@@ -75,6 +75,7 @@ target_sources(${CMAKE_PROJECT_NAME} PRIVATE
 
     # Common
     Core/Src/common/common.c
+    Core/Src/common/home_pose.c
 )
 
 # Add include paths

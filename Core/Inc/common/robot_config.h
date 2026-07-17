@@ -100,6 +100,32 @@ extern "C" {
 #define HIGH_MAX_DEG               2.0f
 #endif
 
+/* HomePose is the fixed pose reached after homing, backoff and encoder zero.
+ * Encoder angles are measured on the motor side of the 4.5:1 reduction. */
+#ifndef HOMEPOSE_X_MM
+#define HOMEPOSE_X_MM              0.0f
+#endif
+#ifndef HOMEPOSE_Y_MM
+#define HOMEPOSE_Y_MM            185.0f
+#endif
+#ifndef HOMEPOSE_Z_MM
+#define HOMEPOSE_Z_MM            240.0f
+#endif
+#ifndef HOMEPOSE_ROT_DEG
+#define HOMEPOSE_ROT_DEG           0.0f
+#endif
+#ifndef HOMEPOSE_LOW_DEG
+#define HOMEPOSE_LOW_DEG           0.0f
+#endif
+#ifndef HOMEPOSE_HIGH_DEG
+#define HOMEPOSE_HIGH_DEG          0.0f
+#endif
+
+/* Extra allowance for encoder quantization and mechanical compliance. */
+#ifndef ACTUAL_JOINT_LIMIT_TOLERANCE_DEG
+#define ACTUAL_JOINT_LIMIT_TOLERANCE_DEG  1.0f
+#endif
+
 /* ═══════════════════════════════════════════════════════════════════════════
  * Motion Planner / 轨迹规划器
  * ═══════════════════════════════════════════════════════════════════════════ */
@@ -268,6 +294,14 @@ extern "C" {
 
 #ifndef GCODE_DEFAULT_FEEDRATE
 #define GCODE_DEFAULT_FEEDRATE  3000.0f      /* Default feedrate (mm/min) / 默认进给速度 */
+#endif
+
+#ifndef GCODE_MAX_FEEDRATE
+#define GCODE_MAX_FEEDRATE      3000.0f      /* Cartesian safety ceiling (mm/min). */
+#endif
+
+#ifndef MOTOR_MAX_STEP_RATE_HZ
+#define MOTOR_MAX_STEP_RATE_HZ  10000U       /* Per-axis STEP ceiling (pulses/s). */
 #endif
 
 #ifndef GCODE_MIN_MOVE_MM

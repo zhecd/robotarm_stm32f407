@@ -16,6 +16,7 @@ extern "C" {
 
 void App_GCodeExec_Init(float start_x, float start_y, float start_z);
 ErrorCode_t App_GCodeExec_Run(const GCodeFrame_t *frame);
+void App_GCodeExec_GetPlannedPosition(float *x, float *y, float *z);
 
 #ifdef __cplusplus
 }

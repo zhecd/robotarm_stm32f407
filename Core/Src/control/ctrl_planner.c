@@ -30,6 +30,18 @@ static float   s_cur_x      = 0.0f;
 static float   s_cur_y      = 0.0f;
 static float   s_cur_z      = 0.0f;
 
+static void ApplyStepRateLimit(MotionFrame_t *frame)
+{
+    uint32_t steps = Common_MaxAbs3(frame->delta_m1, frame->delta_m2, frame->delta_m3);
+    if (steps == 0U) return;
+
+    uint64_t numerator = (uint64_t)steps * TICKS_PER_MS * 1000U;
+    uint32_t min_ticks = (uint32_t)((numerator + MOTOR_MAX_STEP_RATE_HZ - 1U) /
+                                    MOTOR_MAX_STEP_RATE_HZ);
+    if (frame->total_ticks < min_ticks)
+        frame->total_ticks = min_ticks;
+}
+
 ErrorCode_t Ctrl_Planner_Init(float start_x, float start_y, float start_z)
 {
     s_cur_x = start_x;
@@ -156,6 +168,7 @@ ErrorCode_t Ctrl_Planner_MoveLine(float target_x, float target_y, float target_z
         uint32_t fd = Common_MaxAbs3(frame.delta_m1, frame.delta_m2, frame.delta_m3);
         if (fd + FRAME_STEP_MARGIN > frame.total_ticks)
             frame.total_ticks = fd + FRAME_STEP_MARGIN;
+        ApplyStepRateLimit(&frame);
 
         uint32_t remain = segments - i;
         if (remain < END_SLOW_SEGMENTS)
@@ -204,6 +217,7 @@ ErrorCode_t Ctrl_Planner_TeleopStep(float dx, float dy, float dz)
     uint32_t fd = Common_MaxAbs3(frame.delta_m1, frame.delta_m2, frame.delta_m3);
     if (fd > frame.total_ticks)
         frame.total_ticks = fd;
+    ApplyStepRateLimit(&frame);
 
     if (!Ctrl_MotionEngine_PushFrame(&frame))
         return Ctrl_MotionEngine_HasFault() ? ERR_BUSY : ERR_BUFFER_FULL;

@@ -7,6 +7,7 @@
 #include "control/ctrl_closed_loop.h"
 #include "control/ctrl_motion_engine.h"
 #include "bsp/bsp_as5600.h"
+#include "home_pose.h"
 #include "common.h"
 #include "error_code.h"
 #include <math.h>
@@ -34,9 +35,18 @@ static AxisCL_t      s_axis[CL_AXIS_COUNT];
 static PID_State_t   s_pid[CL_AXIS_COUNT];
 static uint32_t      s_last_correct_ms[CL_AXIS_COUNT];
 
-static bool UpdateEncoder(AxisCL_t *ax)
+static bool UpdateEncoder(int axis)
 {
+    AxisCL_t *ax = &s_axis[axis];
     if (BSP_AS5600_Update(ax->encoder) == ERR_OK) {
+        float joint_deg = HomePose_EncoderMotorDegToJointDeg((HomeAxis_t)axis,
+                                                               ax->encoder->angle_deg);
+#if JOINT_LIMITS_ENABLED
+        if (!HomePose_IsJointAngleSafe((HomeAxis_t)axis, joint_deg)) {
+            Ctrl_MotionEngine_EmergencyStopWithReason(MOTION_FAULT_SOFT_LIMIT);
+            return false;
+        }
+#endif
         ax->read_failures = 0U;
         return true;
     }
@@ -83,7 +93,7 @@ static int32_t ComputeCorrection(int i, uint32_t now_ms)
     AxisCL_t *ax = &s_axis[i];
     if (!ax->enabled || !ax->encoder) return 0;
 
-    if (!UpdateEncoder(ax)) return 0;
+    if (!UpdateEncoder(i)) return 0;
 
     float raw = ax->encoder->angle_deg;
     if (!ax->filt_valid) {
@@ -152,7 +162,7 @@ void Ctrl_ClosedLoop_SyncTarget(void)
         s_last_correct_ms[i] = now;
 
         if (s_axis[i].encoder) {
-            UpdateEncoder(&s_axis[i]);
+            UpdateEncoder(i);
         }
     }
 }
@@ -170,7 +180,7 @@ void Ctrl_ClosedLoop_Update(void)
     if (busy) {
         for (int i = 0; i < CL_AXIS_COUNT; i++) {
             if (s_axis[i].enabled && s_axis[i].encoder)
-                UpdateEncoder(&s_axis[i]);
+                UpdateEncoder(i);
         }
         return;
     }
@@ -220,7 +230,7 @@ bool Ctrl_ClosedLoop_GetAxisAngle(int axis, float *out_deg)
         if (out_deg) *out_deg = 0.0f;
         return false;
     }
-    if (!UpdateEncoder(&s_axis[axis])) {
+    if (!UpdateEncoder(axis)) {
         if (out_deg) *out_deg = 0.0f;
         return false;
     }

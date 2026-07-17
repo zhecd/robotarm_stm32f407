@@ -22,9 +22,12 @@ typedef enum {
     GCMD_UNKNOWN = -1,      /* Unknown command / 未知指令 */
     GCMD_G0 = 0,            /* Rapid linear move / 快速直线移动 */
     GCMD_G1 = 1,            /* Linear move with feedrate / 带进给速度直线移动 */
-    GCMD_M999,              /* Fault recovery: re-home and recalibrate. */
     GCMD_M3 = 3,            /* Gripper open / 夹爪张开 */
-    GCMD_M5 = 5             /* Gripper close / 夹爪闭合 */
+    GCMD_M5 = 5,            /* Gripper close / 夹爪闭合 */
+    GCMD_M114 = 114,        /* Planned position and encoder status. */
+    GCMD_M119 = 119,        /* Limit switch state. */
+    GCMD_M400 = 400,        /* Wait until motion queue is empty. */
+    GCMD_M999 = 999         /* Fault recovery: re-home and recalibrate. */
 } GCodeType_t;
 
 typedef struct {

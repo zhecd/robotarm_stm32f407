@@ -27,6 +27,7 @@ typedef enum {
     ERR_OUT_OF_RANGE    = -7,    /* Value out of valid range / 数值超出有效范围 */
     ERR_BUSY            = -8,    /* Resource busy / 资源忙 */
     ERR_ENCODER_FAIL    = -9,    /* Encoder read failure / 编码器读取失败 */
+    ERR_SOFT_LIMIT      = -10,   /* Actual joint angle exceeded software limit. */
 } ErrorCode_t;
 
 #ifdef __cplusplus

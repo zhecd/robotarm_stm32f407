@@ -201,6 +201,17 @@ bool BSP_UART1_TakeTxOverflow(void)
     return overflow;
 }
 
+bool BSP_UART1_FlushTx(uint32_t timeout_ms)
+{
+    uint32_t start = HAL_GetTick();
+    do {
+        StartTxIT();
+        if (!s_tx_dma_active && s_tx.head == s_tx.tail)
+            return true;
+    } while ((HAL_GetTick() - start) < timeout_ms);
+    return false;
+}
+
 void BSP_UART1_DiscardRx(void)
 {
     RefreshRxHead();

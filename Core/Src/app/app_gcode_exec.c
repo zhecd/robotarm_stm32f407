@@ -38,6 +38,8 @@ static ErrorCode_t RunLinearMove(const GCodeFrame_t *frame)
     float ty = frame->has_y ? frame->y : s_exec.cur_y;
     float tz = frame->has_z ? frame->z : s_exec.cur_z;
 
+    if (frame->has_f && (float)frame->f > GCODE_MAX_FEEDRATE)
+        return ERR_OUT_OF_RANGE;
     if (frame->has_f && frame->f > 0U)
         s_exec.feedrate = (float)frame->f;
 
@@ -57,6 +59,13 @@ void App_GCodeExec_Init(float sx, float sy, float sz)
     s_exec.cur_y = sy;
     s_exec.cur_z = sz;
     s_exec.feedrate = GCODE_DEFAULT_FEEDRATE;
+}
+
+void App_GCodeExec_GetPlannedPosition(float *x, float *y, float *z)
+{
+    if (x) *x = s_exec.cur_x;
+    if (y) *y = s_exec.cur_y;
+    if (z) *z = s_exec.cur_z;
 }
 
 ErrorCode_t App_GCodeExec_Run(const GCodeFrame_t *frame)

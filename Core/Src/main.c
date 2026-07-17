@@ -45,6 +45,7 @@
 #include "app/app_calibration.h"
 
 #include "common/common.h"
+#include "common/home_pose.h"
 #include "common/robot_config.h"
 
 #include <stdio.h>
@@ -76,6 +77,7 @@
 /* USER CODE BEGIN PV */
 
 static volatile bool s_mode_switch_requested = false;
+static bool s_wait_for_motion = false;
 
 /* USER CODE END PV */
 
@@ -143,6 +145,33 @@ static void Task_ClosedLoop(void)
     Ctrl_ClosedLoop_Update();
 }
 
+static void ReportM114(void)
+{
+    float x, y, z;
+    float motor[CL_AXIS_COUNT] = {0.0f, 0.0f, 0.0f};
+    float joint[CL_AXIS_COUNT] = {0.0f, 0.0f, 0.0f};
+    App_GCodeExec_GetPlannedPosition(&x, &y, &z);
+
+    for (int i = 0; i < CL_AXIS_COUNT; i++) {
+        if (Ctrl_ClosedLoop_GetAxisAngle(i, &motor[i]))
+            joint[i] = HomePose_EncoderMotorDegToJointDeg((HomeAxis_t)i, motor[i]);
+    }
+
+    printf("M114 PLAN X:%.2f Y:%.2f Z:%.2f J:%.2f,%.2f,%.2f ENC:%.2f,%.2f,%.2f\r\n",
+           x, y, z, joint[0], joint[1], joint[2], motor[0], motor[1], motor[2]);
+}
+
+static void ReportM119(void)
+{
+    int m1 = (HAL_GPIO_ReadPin(M1_STOP_GPIO_Port, M1_STOP_Pin) == GPIO_PIN_RESET);
+    int m2 = (HAL_GPIO_ReadPin(M2_STOP_GPIO_Port, M2_STOP_Pin) == GPIO_PIN_RESET);
+    int m3 = (HAL_GPIO_ReadPin(M3_STOP_GPIO_Port, M3_STOP_Pin) == GPIO_PIN_RESET);
+    printf("M119 M1:%s M2:%s M3:%s\r\n",
+           m1 ? "TRIGGERED" : "OPEN",
+           m2 ? "TRIGGERED" : "OPEN",
+           m3 ? "TRIGGERED" : "OPEN");
+}
+
 /** G-code receive + execute pipeline (G-code mode only). */
 static void Task_GCode(void)
 {
@@ -152,6 +181,16 @@ static void Task_GCode(void)
     /* A second guard makes this task safe even if the mode changes between
        scheduler checks.  UART input is intentionally left unread in PS2 mode. */
     if (App_Teleop_GetMode() != SYS_MODE_GCODE && !Ctrl_MotionEngine_HasFault()) return;
+    if (s_wait_for_motion) {
+        if (Ctrl_MotionEngine_HasFault()) {
+            s_wait_for_motion = false;
+            printf("error: M400 aborted by safety fault\r\n");
+        } else if (!Ctrl_MotionEngine_IsRunning() && Ctrl_MotionEngine_GetQueueCount() == 0U) {
+            s_wait_for_motion = false;
+            printf("ok\r\n");
+        }
+        return;
+    }
     if (BSP_UART1_TakeLineTimeout())
         printf("error: incomplete command; CRLF required\r\n");
     if (BSP_UART1_TakeRxOverflow())
@@ -169,6 +208,25 @@ static void Task_GCode(void)
     }
     if (!has_printable) return;
 
+    if (App_GCodeParser_ParseLine(line, &frame) && frame.type == GCMD_M114) {
+        ReportM114();
+        return;
+    }
+    if (App_GCodeParser_ParseLine(line, &frame) && frame.type == GCMD_M119) {
+        ReportM119();
+        return;
+    }
+    if (App_GCodeParser_ParseLine(line, &frame) && frame.type == GCMD_M400) {
+        if (Ctrl_MotionEngine_HasFault()) {
+            printf("error: M400 rejected by safety fault\r\n");
+        } else if (!Ctrl_MotionEngine_IsRunning() && Ctrl_MotionEngine_GetQueueCount() == 0U) {
+            printf("ok\r\n");
+        } else {
+            s_wait_for_motion = true;
+        }
+        return;
+    }
+
     if (App_GCodeParser_ParseLine(line, &frame) && frame.type == GCMD_M999) {
         if (!Ctrl_MotionEngine_HasFault()) {
             printf("error: M999 requires a safety fault\r\n");
@@ -181,12 +239,12 @@ static void Task_GCode(void)
             return;
         }
         Ctrl_MotionEngine_Init();
-        if (Ctrl_Planner_Init(0.0f, 185.0f, 240.0f) != ERR_OK) {
+        if (Ctrl_Planner_Init(g_home_pose.x_mm, g_home_pose.y_mm, g_home_pose.z_mm) != ERR_OK) {
             Ctrl_MotionEngine_EmergencyStopWithReason(MOTION_FAULT_NONE);
             printf("error: M999 planner reset failed\r\n");
             return;
         }
-        App_GCodeExec_Init(0.0f, 185.0f, 240.0f);
+        App_GCodeExec_Init(g_home_pose.x_mm, g_home_pose.y_mm, g_home_pose.z_mm);
         Ctrl_ClosedLoop_Init();
         if (!App_Calibration_Execute()) {
             Ctrl_MotionEngine_EmergencyStopWithReason(MOTION_FAULT_ENCODER);
@@ -195,6 +253,10 @@ static void Task_GCode(void)
         }
         Ctrl_MotionEngine_ClearFault();
         Ctrl_MotionEngine_EnableLimitMonitoring(true);
+        printf("[HomePose] XYZ=%.1f,%.1f,%.1f J=%.1f,%.1f,%.1f\r\n",
+               g_home_pose.x_mm, g_home_pose.y_mm, g_home_pose.z_mm,
+               g_home_pose.joint_deg[0], g_home_pose.joint_deg[1],
+               g_home_pose.joint_deg[2]);
         printf("M999OK\r\n");
         return;
     }
@@ -260,6 +322,7 @@ static const char *MotionFaultText(MotionFaultReason_t reason)
     switch (reason) {
     case MOTION_FAULT_LIMIT_SWITCH: return "limit switch";
     case MOTION_FAULT_ENCODER:      return "encoder communication";
+    case MOTION_FAULT_SOFT_LIMIT:   return "actual joint soft limit";
     case MOTION_FAULT_QUEUE_TIMEOUT:return "planner queue timeout";
     default:                        return "unspecified";
     }
@@ -338,19 +401,21 @@ int main(void)
       BSP_Stepper_Enable(BSP_Stepper_GetM1(), false);
       BSP_Stepper_Enable(BSP_Stepper_GetM2(), false);
       BSP_Stepper_Enable(BSP_Stepper_GetM3(), false);
+      (void)BSP_UART1_FlushTx(100U);
       Error_Handler();
   }
 
   /* ── Control layer initialization ── */
   Ctrl_MotionEngine_Init();
-  if (Ctrl_Planner_Init(0.0f, 185.0f, 240.0f) != ERR_OK) {
+  if (Ctrl_Planner_Init(g_home_pose.x_mm, g_home_pose.y_mm, g_home_pose.z_mm) != ERR_OK) {
       printf("error: initial pose is unreachable; motion disabled\r\n");
       BSP_Stepper_Enable(BSP_Stepper_GetM1(), false);
       BSP_Stepper_Enable(BSP_Stepper_GetM2(), false);
       BSP_Stepper_Enable(BSP_Stepper_GetM3(), false);
+      (void)BSP_UART1_FlushTx(100U);
       Error_Handler();
   }
-  App_GCodeExec_Init(0.0f, 185.0f, 240.0f);
+  App_GCodeExec_Init(g_home_pose.x_mm, g_home_pose.y_mm, g_home_pose.z_mm);
 
   /* ── Application layer ── */
   App_Teleop_Init();
@@ -360,10 +425,15 @@ int main(void)
       BSP_Stepper_Enable(BSP_Stepper_GetM1(), false);
       BSP_Stepper_Enable(BSP_Stepper_GetM2(), false);
       BSP_Stepper_Enable(BSP_Stepper_GetM3(), false);
+      (void)BSP_UART1_FlushTx(100U);
       Error_Handler();
   }
   Ctrl_MotionEngine_ClearFault();
   Ctrl_MotionEngine_EnableLimitMonitoring(true);
+  printf("[HomePose] XYZ=%.1f,%.1f,%.1f J=%.1f,%.1f,%.1f\r\n",
+         g_home_pose.x_mm, g_home_pose.y_mm, g_home_pose.z_mm,
+         g_home_pose.joint_deg[0], g_home_pose.joint_deg[1],
+         g_home_pose.joint_deg[2]);
 
   /* ── Mode indicator LED ── */
   BSP_LED_SetState(MODE_LED_GCODE, LED_ON);
