@@ -1,12 +1,12 @@
 /**
  * @file    app_calibration.h
- * @brief   Encoder zero-point calibration / coordinate alignment / 编码器零点标定 / 坐标对齐
+ * @brief   Encoder zero-point calibration / coordinate alignment / 缂栫爜鍣ㄩ浂鐐规爣�?/ 鍧愭爣瀵归�?
  * @ingroup app
  *
  * Synchronizes the physical encoder zero position with the theoretical
  * step count after homing. Disables PID axes whose encoders fail to
  * calibrate.
- * 回零后将物理编码器零点与理论步数同步, 标定失败的编码器会禁用对应 PID 轴。
+ * 鍥為浂鍚庡皢鐗╃悊缂栫爜鍣ㄩ浂鐐逛笌鐞嗚姝ユ暟鍚屾�? 鏍囧畾澶辫触鐨勭紪鐮佸櫒浼氱鐢ㄥ�?PID 杞淬�?
  */
 
 #ifndef __APP_CALIBRATION_H__

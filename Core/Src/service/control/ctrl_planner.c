@@ -1,18 +1,18 @@
 /**
  * @file    ctrl_planner.c
- * @brief   Cartesian trajectory planner implementation. / 笛卡尔轨迹规划器实现。
+ * @brief   Cartesian trajectory planner implementation. / 缁楁稑宕辩亸鏃囧缓鏉╃顫夐崚鎺戞珤鐎圭偟骞囬妴?
  * @ingroup control
  */
 
-#include "control/ctrl_planner.h"
-#include "control/ctrl_kinematics.h"
-#include "control/ctrl_motion_engine.h"
-#include "common.h"
+#include "service/control/ctrl_planner.h"
+#include "service/control/ctrl_kinematics.h"
+#include "service/control/ctrl_motion_engine.h"
+#include "robot_math.h"
 #include "main.h"
 #include <stdlib.h>
 #include <math.h>
 
-/* ── Quintic smoothstep: zero velocity/accel at endpoints / 五次平滑: 端点速度/加速度为零 ── */
+/* 閳光偓閳光偓 Quintic smoothstep: zero velocity/accel at endpoints / 娴滄梹顐奸獮铏拨: 缁旑垳鍋ｉ柅鐔峰/閸旂娀鈧喎瀹虫稉娲祩 閳光偓閳光偓 */
 static float Smoothstep(float u)
 {
     if (u <= 0.0f) return 0.0f;
@@ -32,7 +32,7 @@ static float   s_cur_z      = 0.0f;
 
 static void ApplyStepRateLimit(MotionFrame_t *frame)
 {
-    uint32_t steps = Common_MaxAbs3(frame->delta_m1, frame->delta_m2, frame->delta_m3);
+    uint32_t steps = RobotMath_MaxAbs3(frame->delta_m1, frame->delta_m2, frame->delta_m3);
     if (steps == 0U) return;
 
     uint64_t numerator = (uint64_t)steps * TICKS_PER_MS * 1000U;
@@ -93,7 +93,7 @@ ErrorCode_t Ctrl_Planner_MoveLine(float target_x, float target_y, float target_z
     if (total_ticks < MIN_FRAME_TICKS)
         total_ticks = MIN_FRAME_TICKS;
 
-    /* Segment count: distance-based, motor-step-based, and time-based / 分段数: 基于距离、步数和时间 */
+    /* Segment count: distance-based, motor-step-based, and time-based / 閸掑棙顔岄弫? 閸╄桨绨捄婵堫瀲閵嗕焦顒為弫鏉挎嫲閺冨爼妫?*/
     uint32_t seg_dist = (uint32_t)ceilf(dist / LINEAR_SEGMENT_MM);
     if (seg_dist == 0U) seg_dist = 1U;
 
@@ -109,7 +109,7 @@ ErrorCode_t Ctrl_Planner_MoveLine(float target_x, float target_y, float target_z
         .delta_m3    = funits.high_units - s_planned_m3,
         .total_ticks = 0U
     };
-    uint32_t max_delta = Common_MaxAbs3(total_move.delta_m1, total_move.delta_m2, total_move.delta_m3);
+    uint32_t max_delta = RobotMath_MaxAbs3(total_move.delta_m1, total_move.delta_m2, total_move.delta_m3);
     uint32_t seg_motor = (max_delta + MOTOR_STEPS_PER_SEG - 1U) / MOTOR_STEPS_PER_SEG;
     if (seg_motor == 0U) seg_motor = 1U;
 
@@ -165,7 +165,7 @@ ErrorCode_t Ctrl_Planner_MoveLine(float target_x, float target_y, float target_z
         if (frame.delta_m1 == 0 && frame.delta_m2 == 0 && frame.delta_m3 == 0)
             continue;
 
-        uint32_t fd = Common_MaxAbs3(frame.delta_m1, frame.delta_m2, frame.delta_m3);
+        uint32_t fd = RobotMath_MaxAbs3(frame.delta_m1, frame.delta_m2, frame.delta_m3);
         if (fd + FRAME_STEP_MARGIN > frame.total_ticks)
             frame.total_ticks = fd + FRAME_STEP_MARGIN;
         ApplyStepRateLimit(&frame);
@@ -214,7 +214,7 @@ ErrorCode_t Ctrl_Planner_TeleopStep(float dx, float dy, float dz)
     if (frame.delta_m1 == 0 && frame.delta_m2 == 0 && frame.delta_m3 == 0)
         return ERR_OK;
 
-    uint32_t fd = Common_MaxAbs3(frame.delta_m1, frame.delta_m2, frame.delta_m3);
+    uint32_t fd = RobotMath_MaxAbs3(frame.delta_m1, frame.delta_m2, frame.delta_m3);
     if (fd > frame.total_ticks)
         frame.total_ticks = fd;
     ApplyStepRateLimit(&frame);

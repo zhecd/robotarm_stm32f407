@@ -1,10 +1,10 @@
 /**
  * @file    bsp_tmc2209.c
- * @brief   TMC2209 UART register configuration implementation / TMC2209 UART 寄存器配置实现
+ * @brief   TMC2209 UART register configuration implementation / TMC2209 UART 瀵勫瓨鍣ㄩ厤缃疄鐜?
  * @ingroup bsp
  */
 
-#include "bsp/bsp_tmc2209.h"
+#include "driver/drv_tmc2209.h"
 #include "robot_config.h"
 #include <stdio.h>
 
@@ -26,7 +26,7 @@
 #define TMC2209_UART_TX_TIMEOUT_MS    100U
 #define TMC2209_WRITE_SETTLE_MS       5U
 
-/* ── CRC8 calculation / CRC8 计算 ── */
+/* 鈹€鈹€ CRC8 calculation / CRC8 璁＄�?鈹€鈹€ */
 
 static uint8_t CalcCRC8(const uint8_t *datagram, uint8_t len)
 {
@@ -44,7 +44,7 @@ static uint8_t CalcCRC8(const uint8_t *datagram, uint8_t len)
     return crc;
 }
 
-/* ── Microstep to MRES lookup / 微步数转 MRES 查找 ── */
+/* 鈹€鈹€ Microstep to MRES lookup / 寰鏁拌浆 MRES 鏌ユ�?鈹€鈹€ */
 
 static uint32_t MicrostepsToMres(uint16_t microsteps)
 {
@@ -62,7 +62,7 @@ static uint32_t MicrostepsToMres(uint16_t microsteps)
     }
 }
 
-/* ── UART register write with CRC8 / 带 CRC8 的 UART 寄存器写入 ── */
+/* 鈹€鈹€ UART register write with CRC8 / �?CRC8 �?UART 瀵勫瓨鍣ㄥ啓�?鈹€鈹€ */
 
 static void WriteReg(UART_HandleTypeDef *huart, uint8_t addr, uint8_t reg, uint32_t data)
 {
@@ -85,34 +85,34 @@ static void WriteReg(UART_HandleTypeDef *huart, uint8_t addr, uint8_t reg, uint3
     HAL_Delay(TMC2209_WRITE_SETTLE_MS);
 }
 
-/* ── Public API / 公开接口 ── */
+/* 鈹€鈹€ Public API / 鍏紑鎺ュ彛 鈹€鈹€ */
 
-void BSP_TMC2209_ConfigNode(UART_HandleTypeDef *huart, uint8_t node_addr,
+void Drv_TMC2209_ConfigNode(UART_HandleTypeDef *huart, uint8_t node_addr,
                             uint16_t microsteps, uint8_t irun, uint8_t ihold)
 {
-    /* GCONF: StealthChop settings / StealthChop 设置 */
+    /* GCONF: StealthChop settings / StealthChop 璁剧�?*/
     uint32_t gconf = TMC2209_GCONF_MSTEP_REG_SELECT |
                      TMC2209_GCONF_MULTISTEP_FILT  |
                      TMC2209_GCONF_I_SCALE_ANALOG;
     WriteReg(huart, node_addr, TMC2209_REG_GCONF, gconf);
 
-    /* CHOPCONF: microstep + interpolation / 微步 + 插值 */
+    /* CHOPCONF: microstep + interpolation / 寰�?+ 鎻掑�?*/
     uint32_t mres = MicrostepsToMres(microsteps);
     uint32_t chopconf = TMC2209_CHOPCONF_BASE |
                         TMC2209_CHOPCONF_INTPOL |
                         (mres << TMC2209_CHOPCONF_MRES_SHIFT);
     WriteReg(huart, node_addr, TMC2209_REG_CHOPCONF, chopconf);
 
-    /* IHOLD_IRUN: current settings / 电流设置 */
+    /* IHOLD_IRUN: current settings / 鐢垫祦璁剧疆 */
     uint32_t ihold_irun = (6UL << TMC2209_IHOLDDELAY_SHIFT) |
                           (((uint32_t)irun & TMC2209_CURRENT_MASK) << TMC2209_IRUN_SHIFT) |
                           ((uint32_t)ihold & TMC2209_CURRENT_MASK);
     WriteReg(huart, node_addr, TMC2209_REG_IHOLD_IRUN, ihold_irun);
 }
 
-void BSP_TMC2209_InitBus(UART_HandleTypeDef *huart)
+void Drv_TMC2209_InitBus(UART_HandleTypeDef *huart)
 {
     for (uint8_t addr = 0U; addr <= 3U; addr++) {
-        BSP_TMC2209_ConfigNode(huart, addr, 16U, TMC_IRUN_HIGH, TMC_IHOLD_STRONG);
+        Drv_TMC2209_ConfigNode(huart, addr, 16U, TMC_IRUN_HIGH, TMC_IHOLD_STRONG);
     }
 }

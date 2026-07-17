@@ -1,10 +1,10 @@
 /**
  * @file    bsp_as5600.c
- * @brief   AS5600 magnetic encoder driver (multi-turn tracking) / AS5600 磁编码器驱动 (多圈跟踪)
+ * @brief   AS5600 magnetic encoder driver (multi-turn tracking) / AS5600 绾句胶绱惍浣告珤妞瑰崬濮?(婢舵艾婀€鐠虹喕閲?
  * @ingroup bsp
  */
 
-#include "bsp/bsp_as5600.h"
+#include "driver/drv_as5600.h"
 #include "i2c.h"
 #include <stdio.h>
 #include <stdlib.h>
@@ -14,11 +14,11 @@
 #define M_PI 3.14159265358979323846f
 #endif
 
-static AS5600_Dev_t s_enc_m1;
-static AS5600_Dev_t s_enc_m2;
-static AS5600_Dev_t s_enc_m3;
+static As5600Device_t s_enc_m1;
+static As5600Device_t s_enc_m2;
+static As5600Device_t s_enc_m3;
 
-static float ReadRawDeg(AS5600_Dev_t *enc)
+static float ReadRawDeg(As5600Device_t *enc)
 {
     uint8_t data[2];
     if (HAL_I2C_Mem_Read(enc->hi2c, AS5600_ADDR_WRITE, AS5600_REG_RAW_ANGLE,
@@ -28,7 +28,7 @@ static float ReadRawDeg(AS5600_Dev_t *enc)
     return (float)raw * 360.0f / 4096.0f;
 }
 
-static float ReadAvgDeg(AS5600_Dev_t *enc)
+static float ReadAvgDeg(As5600Device_t *enc)
 {
     float sum_sin = 0.0f;
     float sum_cos = 0.0f;
@@ -46,11 +46,11 @@ static float ReadAvgDeg(AS5600_Dev_t *enc)
     return (avg < 0.0f) ? (avg + 360.0f) : avg;
 }
 
-/* ── Public API ── */
+/* 閳光偓閳光偓 Public API 閳光偓閳光偓 */
 
-ErrorCode_t BSP_AS5600_Init(void)
+ErrorCode_t Drv_AS5600_Init(void)
 {
-    AS5600_Dev_t *list[] = {&s_enc_m1, &s_enc_m2, &s_enc_m3};
+    As5600Device_t *list[] = {&s_enc_m1, &s_enc_m2, &s_enc_m3};
     I2C_HandleTypeDef *i2c[] = {&hi2c1, &hi2c2, &hi2c3};
     for (int i = 0; i < 3; i++) {
         list[i]->hi2c          = i2c[i];
@@ -63,7 +63,7 @@ ErrorCode_t BSP_AS5600_Init(void)
     return ERR_OK;
 }
 
-ErrorCode_t BSP_AS5600_Update(AS5600_Dev_t *enc)
+ErrorCode_t Drv_AS5600_Update(As5600Device_t *enc)
 {
     if (!enc || !enc->hi2c) return ERR_NULL_PARAM;
 
@@ -79,9 +79,9 @@ ErrorCode_t BSP_AS5600_Update(AS5600_Dev_t *enc)
         if (prev < 0.0f) prev += 360.0f;
         float delta = phys - prev;
         if (delta > 180.0f) {
-            enc->turn_count--;                    /* wrapped backward (360→0) */
+            enc->turn_count--;                    /* wrapped backward (360閳?) */
         } else if (delta < -180.0f) {
-            enc->turn_count++;                    /* wrapped forward (0→360) */
+            enc->turn_count++;                    /* wrapped forward (0閳?60) */
         }
         enc->raw_unwrapped = (float)enc->turn_count * 360.0f + phys;
     }
@@ -90,7 +90,7 @@ ErrorCode_t BSP_AS5600_Update(AS5600_Dev_t *enc)
     return ERR_OK;
 }
 
-void BSP_AS5600_SyncTurn(AS5600_Dev_t *enc, float expected_deg)
+void Drv_AS5600_SyncTurn(As5600Device_t *enc, float expected_deg)
 {
     if (!enc) return;
 
@@ -103,7 +103,7 @@ void BSP_AS5600_SyncTurn(AS5600_Dev_t *enc, float expected_deg)
     enc->angle_deg      = enc->raw_unwrapped - enc->zero_offset;
 }
 
-ErrorCode_t BSP_AS5600_SetZero(AS5600_Dev_t *enc)
+ErrorCode_t Drv_AS5600_SetZero(As5600Device_t *enc)
 {
     if (!enc || !enc->hi2c) return ERR_NULL_PARAM;
 
@@ -118,12 +118,12 @@ ErrorCode_t BSP_AS5600_SetZero(AS5600_Dev_t *enc)
     return ERR_OK;
 }
 
-void BSP_AS5600_PrintStatus(void)
+void Drv_AS5600_PrintStatus(void)
 {
-    AS5600_Dev_t *enc[3] = {&s_enc_m1, &s_enc_m2, &s_enc_m3};
-    BSP_AS5600_Update(enc[0]);
-    BSP_AS5600_Update(enc[1]);
-    BSP_AS5600_Update(enc[2]);
+    As5600Device_t *enc[3] = {&s_enc_m1, &s_enc_m2, &s_enc_m3};
+    Drv_AS5600_Update(enc[0]);
+    Drv_AS5600_Update(enc[1]);
+    Drv_AS5600_Update(enc[2]);
 
     int d[3];
     for (int i = 0; i < 3; i++)
@@ -135,11 +135,11 @@ void BSP_AS5600_PrintStatus(void)
            d[2] < 0 ? "-" : "", abs(d[2]) / 10, abs(d[2]) % 10);
 }
 
-int32_t BSP_AS5600_GetSteps(AS5600_Dev_t *enc)
+int32_t Drv_AS5600_GetSteps(As5600Device_t *enc)
 {
     return DegToSteps(enc->angle_deg);
 }
 
-AS5600_Dev_t *BSP_AS5600_GetM1(void) { return &s_enc_m1; }
-AS5600_Dev_t *BSP_AS5600_GetM2(void) { return &s_enc_m2; }
-AS5600_Dev_t *BSP_AS5600_GetM3(void) { return &s_enc_m3; }
+As5600Device_t *Drv_AS5600_GetM1(void) { return &s_enc_m1; }
+As5600Device_t *Drv_AS5600_GetM2(void) { return &s_enc_m2; }
+As5600Device_t *Drv_AS5600_GetM3(void) { return &s_enc_m3; }

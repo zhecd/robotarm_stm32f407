@@ -48,24 +48,31 @@ target_sources(${CMAKE_PROJECT_NAME} PRIVATE
     Core/Src/main.c
     Core/Src/gpio.c
 
-    # BSP layer
+    # Board support
     Core/Src/bsp/bsp_led.c
-    Core/Src/bsp/bsp_stepper.c
-    Core/Src/bsp/bsp_tmc2209.c
     Core/Src/bsp/bsp_uart1.c
-    Core/Src/bsp/bsp_ps2.c
-    Core/Src/bsp/bsp_gripper.c
-    Core/Src/bsp/bsp_as5600.c
-    Core/Src/bsp/bsp_homing.c
 
-    # Control layer
-    Core/Src/control/ctrl_motion_engine.c
-    Core/Src/control/ctrl_kinematics.c
-    Core/Src/control/ctrl_planner.c
-    Core/Src/control/ctrl_closed_loop.c
-    Core/Src/control/ctrl_compensation.c
-    Core/Src/control/ctrl_gripper.c
-    Core/Src/control/ctrl_ps2.c
+    # Device drivers
+    Core/Src/driver/drv_as5600.c
+    Core/Src/driver/drv_ps2.c
+    Core/Src/driver/drv_servo.c
+    Core/Src/driver/drv_stepper.c
+    Core/Src/driver/drv_tmc2209.c
+
+    # Robot devices
+    Core/Src/device/dev_gripper.c
+    Core/Src/device/dev_input.c
+    Core/Src/device/dev_joint.c
+    Core/Src/device/dev_limit_switch.c
+
+    # Robot services and control algorithms
+    Core/Src/service/svc_gripper.c
+    Core/Src/service/svc_homing.c
+    Core/Src/service/control/ctrl_motion_engine.c
+    Core/Src/service/control/ctrl_kinematics.c
+    Core/Src/service/control/ctrl_planner.c
+    Core/Src/service/control/ctrl_closed_loop.c
+    Core/Src/service/control/ctrl_compensation.c
 
     # App layer
     Core/Src/app/app_gcode_parser.c
@@ -74,17 +81,24 @@ target_sources(${CMAKE_PROJECT_NAME} PRIVATE
     Core/Src/app/app_calibration.c
 
     # Common
-    Core/Src/common/common.c
-    Core/Src/common/home_pose.c
+    Core/Src/common/robot_math.c
+    Core/Src/common/robot_home_pose.c
+
+    # Bare-metal OS abstraction
+    Core/Src/os/os_adapter.c
 )
 
 # Add include paths
 target_include_directories(${CMAKE_PROJECT_NAME} PRIVATE
     Core/Inc
     Core/Inc/bsp
-    Core/Inc/control
     Core/Inc/app
+    Core/Inc/service
+    Core/Inc/service/control
+    Core/Inc/device
+    Core/Inc/driver
     Core/Inc/common
+    Core/Inc/os
 )
 
 # Add project symbols (macros)

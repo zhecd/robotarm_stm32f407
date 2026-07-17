@@ -1,6 +1,6 @@
 /**
  * @file    bsp_uart1.c
- * @brief   UART1 ring-buffer line reader and printf retarget. / UART1 环形缓冲区行读取与 printf 重定向。
+ * @brief   UART1 ring-buffer line reader and printf retarget. / UART1 鐜舰缂撳啿鍖鸿璇诲彇�?printf 閲嶅畾鍚戙€?
  * @ingroup bsp
  */
 
@@ -260,7 +260,7 @@ void BSP_UART1_SendString(const char *str)
     QueueTx((const uint8_t *)str, strlen(str));
 }
 
-/* ── printf retarget / printf 重定向 ── */
+/* 鈹€鈹€ printf retarget / printf 閲嶅畾鍚?鈹€鈹€ */
 
 #ifdef __GNUC__
 #define PUTCHAR_PROTO int __io_putchar(int ch)

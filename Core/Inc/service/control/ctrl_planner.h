@@ -1,12 +1,12 @@
 /**
  * @file    ctrl_planner.h
- * @brief   Cartesian-to-motor trajectory planner with quintic smoothing / 笛卡尔-电机轨迹规划器 (五次样条平滑)
+ * @brief   Cartesian-to-motor trajectory planner with quintic smoothing / 绗涘崱灏?鐢垫満杞ㄨ抗瑙勫垝�?(浜旀鏍锋潯骞虫�?
  * @ingroup control
  *
  * Segments straight-line Cartesian paths into MotionFrame_t chunks.
  * Uses quintic (5th-order) smoothstep velocity profiling for jerk-limited
  * acceleration and deceleration.
- * 将笛卡尔直线路径分段为 MotionFrame_t 帧, 使用五次平滑阶跃速度曲线实现加加速度受限的加减速。
+ * 灏嗙瑳鍗″皵鐩寸嚎璺緞鍒嗘涓?MotionFrame_t �? 浣跨敤浜旀骞虫粦闃惰穬閫熷害鏇茬嚎瀹炵幇鍔犲姞閫熷害鍙楅檺鐨勫姞鍑忛€熴€?
  */
 
 #ifndef __CTRL_PLANNER_H__
@@ -22,10 +22,10 @@ extern "C" {
 
 ErrorCode_t Ctrl_Planner_Init(float start_x, float start_y, float start_z);
 
-/** Plan and queue a straight-line move / 规划并排队直线运动 */
+/** Plan and queue a straight-line move / 瑙勫垝骞舵帓闃熺洿绾胯繍�?*/
 ErrorCode_t Ctrl_Planner_MoveLine(float target_x, float target_y, float target_z, uint32_t duration_ms);
 
-/** Single step for teleop joystick control / 遥控摇杆单步移动 */
+/** Single step for teleop joystick control / 閬ユ帶鎽囨潌鍗曟绉诲姩 */
 ErrorCode_t Ctrl_Planner_TeleopStep(float dx, float dy, float dz);
 
 #ifdef __cplusplus

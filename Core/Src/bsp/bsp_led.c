@@ -1,13 +1,13 @@
 /**
  * @file    bsp_led.c
- * @brief   LED board support package implementation / LED 板级支持包实现
+ * @brief   LED board support package implementation / LED 鏉跨骇鏀寔鍖呭疄鐜?
  * @ingroup bsp
  */
 
 #include "bsp/bsp_led.h"
 #include "gpio.h"
 
-/* LED software state array, initialized to all-off / LED 软件状态数组, 初始全灭 */
+/* LED software state array, initialized to all-off / LED 杞欢鐘舵€佹暟�? 鍒濆鍏ㄧ伃 */
 static LedState_t        s_led_states[LED_COUNT] = {LED_OFF, LED_OFF, LED_OFF, LED_OFF};
 static const uint16_t    s_led_pins[LED_COUNT]   = {LED0_Pin, LED1_Pin, LED2_Pin, LED3_Pin};
 static GPIO_TypeDef     *const s_led_ports[LED_COUNT] = {LED0_GPIO_Port, LED1_GPIO_Port, LED2_GPIO_Port, LED3_GPIO_Port};

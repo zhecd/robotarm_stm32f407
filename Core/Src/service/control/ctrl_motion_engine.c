@@ -1,10 +1,12 @@
 /**
  * @file    ctrl_motion_engine.c
- * @brief   Bresenham motion engine implementation. / Bresenham 运动引擎实现。
+ * @brief   Bresenham motion engine implementation. / Bresenham 鏉╂劕濮╁鏇熸惛鐎圭偟骞囬妴?
  * @ingroup control
  */
 
-#include "control/ctrl_motion_engine.h"
+#include "service/control/ctrl_motion_engine.h"
+#include "device/dev_joint.h"
+#include "device/dev_limit_switch.h"
 #include "robot_config.h"
 #include <stdio.h>
 #include <stdlib.h>
@@ -119,13 +121,9 @@ void Ctrl_MotionEngine_ServiceSafety(void)
     s_pending_limit_pins &= (uint16_t)~pending;
     __set_PRIMASK(primask);
 
-    bool active = false;
-    if ((pending & M1_STOP_Pin) && HAL_GPIO_ReadPin(M1_STOP_GPIO_Port, M1_STOP_Pin) == GPIO_PIN_RESET)
-        active = true;
-    if ((pending & M2_STOP_Pin) && HAL_GPIO_ReadPin(M2_STOP_GPIO_Port, M2_STOP_Pin) == GPIO_PIN_RESET)
-        active = true;
-    if ((pending & M3_STOP_Pin) && HAL_GPIO_ReadPin(M3_STOP_GPIO_Port, M3_STOP_Pin) == GPIO_PIN_RESET)
-        active = true;
+    bool active = Dev_LimitSwitch_IsPinTriggered(pending & M1_STOP_Pin) ||
+                  Dev_LimitSwitch_IsPinTriggered(pending & M2_STOP_Pin) ||
+                  Dev_LimitSwitch_IsPinTriggered(pending & M3_STOP_Pin);
     if (active)
         Ctrl_MotionEngine_EmergencyStopWithReason(MOTION_FAULT_LIMIT_SWITCH);
 }
@@ -184,7 +182,7 @@ void Ctrl_MotionEngine_AdjustTheorySteps(int32_t dm1, int32_t dm2, int32_t dm3)
     __enable_irq();
 }
 
-/* ── TIM6 ISR: Bresenham step generation / TIM6 中断: Bresenham 步进生成 ── */
+/* 閳光偓閳光偓 TIM6 ISR: Bresenham step generation / TIM6 娑擃厽鏌? Bresenham 濮濄儴绻橀悽鐔稿灇 閳光偓閳光偓 */
 
 void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 {
@@ -195,12 +193,9 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
         s_running  = true;
         s_cur_tick = 0;
 
-        BSP_Stepper_SetDir(BSP_Stepper_GetM1(),
-            (s_cur_frame.delta_m1 >= 0) ? STEPPER_DIR_CW : STEPPER_DIR_CCW);
-        BSP_Stepper_SetDir(BSP_Stepper_GetM2(),
-            (s_cur_frame.delta_m2 >= 0) ? STEPPER_DIR_CW : STEPPER_DIR_CCW);
-        BSP_Stepper_SetDir(BSP_Stepper_GetM3(),
-            (s_cur_frame.delta_m3 >= 0) ? STEPPER_DIR_CW : STEPPER_DIR_CCW);
+        Dev_Joint_SetDirection(DEV_JOINT_M1, s_cur_frame.delta_m1 >= 0);
+        Dev_Joint_SetDirection(DEV_JOINT_M2, s_cur_frame.delta_m2 >= 0);
+        Dev_Joint_SetDirection(DEV_JOINT_M3, s_cur_frame.delta_m3 >= 0);
 
         s_abs_m1 = (uint32_t)labs(s_cur_frame.delta_m1);
         s_abs_m2 = (uint32_t)labs(s_cur_frame.delta_m2);
@@ -213,19 +208,19 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 
     s_acc_m1 += s_abs_m1;
     if (s_acc_m1 >= s_cur_frame.total_ticks) {
-        BSP_Stepper_Step(BSP_Stepper_GetM1());
+        Dev_Joint_Step(DEV_JOINT_M1);
         s_acc_m1 -= s_cur_frame.total_ticks;
     }
 
     s_acc_m2 += s_abs_m2;
     if (s_acc_m2 >= s_cur_frame.total_ticks) {
-        BSP_Stepper_Step(BSP_Stepper_GetM2());
+        Dev_Joint_Step(DEV_JOINT_M2);
         s_acc_m2 -= s_cur_frame.total_ticks;
     }
 
     s_acc_m3 += s_abs_m3;
     if (s_acc_m3 >= s_cur_frame.total_ticks) {
-        BSP_Stepper_Step(BSP_Stepper_GetM3());
+        Dev_Joint_Step(DEV_JOINT_M3);
         s_acc_m3 -= s_cur_frame.total_ticks;
     }
 

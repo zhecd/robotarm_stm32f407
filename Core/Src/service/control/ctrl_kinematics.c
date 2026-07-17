@@ -1,11 +1,10 @@
 /**
  * @file    ctrl_kinematics.c
- * @brief   Inverse kinematics implementation for parallel-gripper SCARA arm. / 平行夹爪 SCARA 机械臂逆运动学实现。
- * @ingroup control
+ * @brief   Inverse kinematics implementation for parallel-gripper SCARA arm. / 楠炲疇顢戞径鍦焻 SCARA 閺堢儤顫懛鍌炩偓鍡氱箥閸斻劌顒熺€圭偟骞囬妴? * @ingroup control
  */
 
-#include "control/ctrl_kinematics.h"
-#include "common.h"
+#include "service/control/ctrl_kinematics.h"
+#include "robot_math.h"
 #include <stdbool.h>
 
 #ifndef M_PI
@@ -14,7 +13,7 @@
 
 void Ctrl_Kinematics_Init(void)
 {
-    /* No pre-computation needed for this structure. / 此结构无需预计算。 */
+    /* No pre-computation needed for this structure. / 濮濄倗绮ㄩ弸鍕￥闂団偓妫板嫯顓哥粻妞尖偓?*/
 }
 
 static bool AnglesWithinJointLimits(const RobotAngles_t *angles)
@@ -34,19 +33,19 @@ ErrorCode_t Ctrl_Kinematics_Solve(float x, float y, float z, RobotAngles_t *angl
     if (!angles) return ERR_NULL_PARAM;
     if (!isfinite(x) || !isfinite(y) || !isfinite(z)) return ERR_OUT_OF_RANGE;
 
-    /* ── Coordinate transform: desktop → shoulder frame / 坐标变换: 桌面 → 肩部坐标系 ── */
+    /* 閳光偓閳光偓 Coordinate transform: desktop 閳?shoulder frame / 閸ф劖鐖ｉ崣妯诲床: 濡楀矂娼?閳?閼测晠鍎撮崸鎰垼缁?閳光偓閳光偓 */
     float zi = z - BASE_HEIGHT;
 
-    /* ── θ1: Base rotation / 底座旋转 ── */
+    /* 閳光偓閳光偓 鑳?: Base rotation / 鎼存洖楠囬弮瀣祮 閳光偓閳光偓 */
     angles->rot = atan2f(x, y);
 
-    /* ── Compute wrist position from fingertip + tool offset / 从指尖+工具偏移计算腕部位置 ── */
+    /* 閳光偓閳光偓 Compute wrist position from fingertip + tool offset / 娴犲孩瀵氱亸?瀹搞儱鍙块崑蹇曅╃拋锛勭暬閼垫洟鍎存担宥囩枂 閳光偓閳光偓 */
     float r_target = sqrtf(x * x + y * y);
     float r_wrist  = r_target - TOOL_OFFSET_R;
     float z_wrist  = zi - TOOL_OFFSET_Z;
     if (r_wrist < 0.0f) return ERR_OUT_OF_RANGE;
 
-    /* ── Standard 2-link IK (L1 == L2 = 140 mm, isosceles) / 标准二连杆逆解 (L1==L2=140mm, 等腰) ── */
+    /* 閳光偓閳光偓 Standard 2-link IK (L1 == L2 = 140 mm, isosceles) / 閺嶅洤鍣禍宀冪箾閺夊棝鈧棜袙 (L1==L2=140mm, 缁涘鍙? 閳光偓閳光偓 */
     float dist_sq = r_wrist * r_wrist + z_wrist * z_wrist;
     float dist    = sqrtf(dist_sq);
     if (dist > (LINK_1_LEN + LINK_2_LEN) ||
@@ -57,17 +56,17 @@ ErrorCode_t Ctrl_Kinematics_Solve(float x, float y, float z, RobotAngles_t *angl
     float alpha_rad = acosf(CLAMP(val, -1.0f, 1.0f));
     float phi_rad   = atan2f(r_wrist, z_wrist);
 
-    /* ── θ2: Shoulder / 肩关节 ── */
+    /* 閳光偓閳光偓 鑳?: Shoulder / 閼测晛鍙ч懞?閳光偓閳光偓 */
     angles->low = phi_rad - alpha_rad;
 
-    /* ── θ3: Elbow / 肘关节 ── */
+    /* 閳光偓閳光偓 鑳?: Elbow / 閼叉ê鍙ч懞?閳光偓閳光偓 */
     float elbow_r = LINK_1_LEN * sinf(angles->low);
     float elbow_z = LINK_1_LEN * cosf(angles->low);
     float dr = r_wrist - elbow_r;
     float dz = z_wrist - elbow_z;
     angles->high = atan2f(dz, dr);
 
-    /* ── Rad → Deg / 弧度转角度 ── */
+    /* 閳光偓閳光偓 Rad 閳?Deg / 瀵冨鏉烆剝顫楁惔?閳光偓閳光偓 */
     angles->rot  = RAD_TO_DEG(angles->rot);
     angles->low  = RAD_TO_DEG(angles->low);
     angles->high = RAD_TO_DEG(angles->high);

@@ -1,19 +1,18 @@
 /**
  * @file    ctrl_closed_loop.c
- * @brief   3-axis PID closed-loop position controller implementation. / 三轴 PID 闭环位置控制器实现。
+ * @brief   3-axis PID closed-loop position controller implementation. / 涓夎�?PID 闂幆浣嶇疆鎺у埗鍣ㄥ疄鐜般€?
  * @ingroup control
  */
 
-#include "control/ctrl_closed_loop.h"
-#include "control/ctrl_motion_engine.h"
-#include "bsp/bsp_as5600.h"
-#include "home_pose.h"
-#include "common.h"
+#include "service/control/ctrl_closed_loop.h"
+#include "service/control/ctrl_motion_engine.h"
+#include "device/dev_joint.h"
+#include "robot_math.h"
 #include "error_code.h"
 #include <math.h>
 #include <stdio.h>
 
-/* ── Private PID state / 内部 PID 状态 ── */
+/* 鈹€鈹€ Private PID state / 鍐呴�?PID 鐘舵�?鈹€鈹€ */
 typedef struct {
     float integral;
     float prev_error;
@@ -23,7 +22,7 @@ typedef struct {
 typedef struct {
     float          kp, ki, kd;
     float          deadband_deg;
-    AS5600_Dev_t  *encoder;
+    float          motor_angle_deg;
     float          target_deg;
     bool           enabled;
     float          filt_angle;
@@ -38,15 +37,15 @@ static uint32_t      s_last_correct_ms[CL_AXIS_COUNT];
 static bool UpdateEncoder(int axis)
 {
     AxisCL_t *ax = &s_axis[axis];
-    if (BSP_AS5600_Update(ax->encoder) == ERR_OK) {
-        float joint_deg = HomePose_EncoderMotorDegToJointDeg((HomeAxis_t)axis,
-                                                               ax->encoder->angle_deg);
+    float motor_angle_deg = 0.0f;
+    if (Dev_Joint_ReadMotorAngle((DevJointId_t)axis, &motor_angle_deg) == ERR_OK) {
 #if JOINT_LIMITS_ENABLED
-        if (!HomePose_IsJointAngleSafe((HomeAxis_t)axis, joint_deg)) {
+        if (!Dev_Joint_IsWithinSoftLimit((DevJointId_t)axis, motor_angle_deg)) {
             Ctrl_MotionEngine_EmergencyStopWithReason(MOTION_FAULT_SOFT_LIMIT);
             return false;
         }
 #endif
+        ax->motor_angle_deg = motor_angle_deg;
         ax->read_failures = 0U;
         return true;
     }
@@ -55,7 +54,7 @@ static bool UpdateEncoder(int axis)
     return false;
 }
 
-/* ── PID core / PID 核心 ── */
+/* 鈹€鈹€ PID core / PID 鏍稿�?鈹€鈹€ */
 
 static void PID_Reset(PID_State_t *p)
 {
@@ -86,16 +85,16 @@ static float PID_Compute(AxisCL_t *cl, PID_State_t *p, float error, float dt,
     return out;
 }
 
-/* ── Per-axis correction / 单轴校正 ── */
+/* 鈹€鈹€ Per-axis correction / 鍗曡酱鏍℃ 鈹€鈹€ */
 
 static int32_t ComputeCorrection(int i, uint32_t now_ms)
 {
     AxisCL_t *ax = &s_axis[i];
-    if (!ax->enabled || !ax->encoder) return 0;
+    if (!ax->enabled) return 0;
 
     if (!UpdateEncoder(i)) return 0;
 
-    float raw = ax->encoder->angle_deg;
+    float raw = ax->motor_angle_deg;
     if (!ax->filt_valid) {
         ax->filt_angle = raw;
         ax->filt_valid = true;
@@ -123,20 +122,16 @@ static int32_t ComputeCorrection(int i, uint32_t now_ms)
     return DegToSteps(corr_deg);
 }
 
-/* ── Public API / 公开接口 ── */
+/* 鈹€鈹€ Public API / 鍏紑鎺ュ彛 鈹€鈹€ */
 
 void Ctrl_ClosedLoop_Init(void)
 {
-    AS5600_Dev_t *enc[CL_AXIS_COUNT] = {
-        BSP_AS5600_GetM1(), BSP_AS5600_GetM2(), BSP_AS5600_GetM3()
-    };
-
     for (int i = 0; i < CL_AXIS_COUNT; i++) {
         s_axis[i].kp          = CL_KP;
         s_axis[i].ki          = CL_KI;
         s_axis[i].kd          = CL_KD;
         s_axis[i].deadband_deg = CL_DEADBAND_DEG;
-        s_axis[i].encoder     = enc[i];
+        s_axis[i].motor_angle_deg = 0.0f;
         s_axis[i].target_deg  = 0.0f;
         s_axis[i].enabled     = true;
         s_axis[i].filt_angle  = 0.0f;
@@ -161,9 +156,7 @@ void Ctrl_ClosedLoop_SyncTarget(void)
         PID_Reset(&s_pid[i]);
         s_last_correct_ms[i] = now;
 
-        if (s_axis[i].encoder) {
-            UpdateEncoder(i);
-        }
+        UpdateEncoder(i);
     }
 }
 
@@ -175,11 +168,11 @@ void Ctrl_ClosedLoop_Update(void)
 
     /* Always track multi-turn wraps, even when motion engine is busy.
        Otherwise a Nyquist gap opens during PID correction when the user
-       is still forcing the motor. / 始终追踪多圈越界, 防止PID修正期间
-       用户持续暴力旋转导致的Nyquist采样缺口。 */
+       is still forcing the motor. / 濮嬬粓杩借釜澶氬湀瓒婄�? 闃叉PID淇鏈熼棿
+       鐢ㄦ埛鎸佺画鏆村姏鏃嬭浆瀵艰嚧鐨凬yquist閲囨牱缂哄彛�?*/
     if (busy) {
         for (int i = 0; i < CL_AXIS_COUNT; i++) {
-            if (s_axis[i].enabled && s_axis[i].encoder)
+            if (s_axis[i].enabled)
                 UpdateEncoder(i);
         }
         return;
@@ -199,7 +192,7 @@ void Ctrl_ClosedLoop_Update(void)
         .delta_m1    = s[0],
         .delta_m2    = s[1],
         .delta_m3    = s[2],
-        .total_ticks = Common_MaxAbs3(s[0], s[1], s[2]) * CL_SPEED_DIV
+        .total_ticks = RobotMath_MaxAbs3(s[0], s[1], s[2]) * CL_SPEED_DIV
     };
     if (frame.total_ticks < CL_MIN_TICKS)
         frame.total_ticks = CL_MIN_TICKS;
@@ -211,7 +204,7 @@ void Ctrl_ClosedLoop_Update(void)
     }
 }
 
-/* ── Accessor functions / 访问器函数 ── */
+/* 鈹€鈹€ Accessor functions / 璁块棶鍣ㄥ嚱�?鈹€鈹€ */
 
 bool Ctrl_ClosedLoop_IsAxisEnabled(int axis)
 {
@@ -226,7 +219,7 @@ void Ctrl_ClosedLoop_SetAxisEnabled(int axis, bool en)
 
 bool Ctrl_ClosedLoop_GetAxisAngle(int axis, float *out_deg)
 {
-    if (axis < 0 || axis >= CL_AXIS_COUNT || !s_axis[axis].encoder) {
+    if (axis < 0 || axis >= CL_AXIS_COUNT) {
         if (out_deg) *out_deg = 0.0f;
         return false;
     }
@@ -234,13 +227,13 @@ bool Ctrl_ClosedLoop_GetAxisAngle(int axis, float *out_deg)
         if (out_deg) *out_deg = 0.0f;
         return false;
     }
-    if (out_deg) *out_deg = s_axis[axis].encoder->angle_deg;
+    if (out_deg) *out_deg = s_axis[axis].motor_angle_deg;
     return true;
 }
 
 ErrorCode_t Ctrl_ClosedLoop_SetAxisZero(int axis)
 {
-    if (axis < 0 || axis >= CL_AXIS_COUNT || !s_axis[axis].encoder)
+    if (axis < 0 || axis >= CL_AXIS_COUNT)
         return ERR_NULL_PARAM;
-    return BSP_AS5600_SetZero(s_axis[axis].encoder);
+    return Dev_Joint_SetFeedbackZero((DevJointId_t)axis);
 }

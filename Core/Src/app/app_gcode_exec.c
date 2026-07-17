@@ -1,12 +1,11 @@
 /**
  * @file    app_gcode_exec.c
- * @brief   G-code command executor implementation. / G-code 指令执行器实现。
- * @ingroup app
+ * @brief   G-code command executor implementation. / G-code 閹稿洣鎶ら幍褑顢戦崳銊ョ杽閻滆埇鈧? * @ingroup app
  */
 
 #include "app/app_gcode_exec.h"
-#include "control/ctrl_gripper.h"
-#include "control/ctrl_planner.h"
+#include "service/svc_gripper.h"
+#include "service/control/ctrl_planner.h"
 #include "robot_config.h"
 #include <math.h>
 
@@ -77,10 +76,10 @@ ErrorCode_t App_GCodeExec_Run(const GCodeFrame_t *frame)
     case GCMD_G1:
         return RunLinearMove(frame);
     case GCMD_M3:
-        Ctrl_Gripper_Open();
+        Svc_Gripper_Open();
         return ERR_OK;
     case GCMD_M5:
-        Ctrl_Gripper_Close();
+        Svc_Gripper_Close();
         return ERR_OK;
     case GCMD_UNKNOWN:
     default:

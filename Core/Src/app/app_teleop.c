@@ -1,14 +1,13 @@
 /**
  * @file    app_teleop.c
- * @brief   PS2 joystick teleop implementation. / PS2 手柄遥操作实现。
- * @ingroup app
+ * @brief   PS2 joystick teleop implementation. / PS2 鎵嬫焺閬ユ搷浣滃疄鐜般€? * @ingroup app
  */
 
 #include "app/app_teleop.h"
-#include "control/ctrl_gripper.h"
-#include "control/ctrl_ps2.h"
-#include "control/ctrl_planner.h"
-#include "control/ctrl_motion_engine.h"
+#include "service/svc_gripper.h"
+#include "device/dev_input.h"
+#include "service/control/ctrl_planner.h"
+#include "service/control/ctrl_motion_engine.h"
 #include "robot_config.h"
 #include <stdio.h>
 #include <stdlib.h>
@@ -41,8 +40,8 @@ void App_Teleop_Task(void)
         return;
     s_last_poll_ms = HAL_GetTick();
 
-    PS2_Data_t ps2 = {0};
-    bool valid = Ctrl_PS2_ReadData(&ps2);
+    DevInputState_t ps2 = {0};
+    bool valid = Dev_Input_Read(&ps2);
 
     if (!valid) {
         if (s_mode == SYS_MODE_PS2) {
@@ -56,7 +55,7 @@ void App_Teleop_Task(void)
     }
     s_fault_reported = false;
 
-    /* SELECT button: toggle mode / SELECT 键: 切换模式 */
+    /* SELECT button: toggle mode / SELECT �? 鍒囨崲妯″紡 */
     /* Mode changes are owned exclusively by the physical MODE key.  Keeping
        SELECT out of this path prevents packet noise or an accidental press
        from silently enabling/disabling UART G-code control. */
@@ -64,9 +63,9 @@ void App_Teleop_Task(void)
     if (s_mode == SYS_MODE_PS2) {
         float dx = 0.0f, dy = 0.0f, dz = 0.0f;
 
-        int jly = 128 - ps2.LY;
-        int jlx = ps2.LX - 128;
-        int jry = 128 - ps2.RY;
+        int jly = 128 - ps2.left_y;
+        int jlx = ps2.left_x - 128;
+        int jry = 128 - ps2.right_y;
 
         if (abs(jlx) > JOYSTICK_DEADZONE) dx = (jlx / 128.0f) * TELEOP_MAX_STEP_MM;
         if (abs(jly) > JOYSTICK_DEADZONE) dy = (jly / 128.0f) * TELEOP_MAX_STEP_MM;
@@ -78,13 +77,13 @@ void App_Teleop_Task(void)
             StopMotion();
         }
 
-        /* Cross = close, Square = open / 叉键=关闭, 方键=打开 */
-        if ((s_last_buttons & PS2_BTN_CROSS) && !(ps2.buttons & PS2_BTN_CROSS)) {
-            Ctrl_Gripper_Close();
+        /* Cross = close, Square = open / 鍙夐�?鍏抽�? 鏂归�?鎵撳�?*/
+        if ((s_last_buttons & DEV_INPUT_BTN_CROSS) && !(ps2.buttons & DEV_INPUT_BTN_CROSS)) {
+            Svc_Gripper_Close();
             printf("PS2: Gripper Close\r\n");
         }
-        if ((s_last_buttons & PS2_BTN_SQUARE) && !(ps2.buttons & PS2_BTN_SQUARE)) {
-            Ctrl_Gripper_Open();
+        if ((s_last_buttons & DEV_INPUT_BTN_SQUARE) && !(ps2.buttons & DEV_INPUT_BTN_SQUARE)) {
+            Svc_Gripper_Open();
             printf("PS2: Gripper Open\r\n");
         }
     }

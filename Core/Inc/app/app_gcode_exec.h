@@ -1,6 +1,6 @@
 /**
  * @file    app_gcode_exec.h
- * @brief   G-code command executor — maps parsed commands to planner calls / G-code 指令执行器, 将解析结果映射为规划器调用
+ * @brief   G-code command executor 閳?maps parsed commands to planner calls / G-code 閹稿洣鎶ら幍褑顢戦崳? 鐏忓棜袙閺嬫劗绮ㄩ弸婊勬Ё鐏忓嫪璐熺憴鍕灊閸ｃ劏鐨熼悽?
  * @ingroup app
  */
 

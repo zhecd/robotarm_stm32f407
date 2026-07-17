@@ -1,30 +1,28 @@
 /**
  * @file    ctrl_compensation.c
- * @brief   Static position error compensation implementation. / 静态位置误差补偿实现。
- * @ingroup control
+ * @brief   Static position error compensation implementation. / 闈欐€佷綅缃宸ˉ鍋垮疄鐜般€? * @ingroup control
  *
- * Architecture guarantee / 架构保证:
+ * Architecture guarantee / 鏋舵瀯淇濊瘉:
  *   theory_steps accumulates only planner-pushed frames (not compensation
  *   frames), so it always represents the "commanded" position. This function
  *   takes a snapshot of theory_steps as a fixed target and drives the
  *   encoders toward it.
- *   theory_steps 仅累积规划器推送的帧(不含补偿帧), 因此始终代表"指令"位置。
- *   本函数将 theory_steps 的快照作为固定目标, 驱动编码器趋近该目标。
- */
+ *   theory_steps 浠呯疮绉鍒掑櫒鎺ㄩ€佺殑�?涓嶅惈琛ュ伩�?, 鍥犳濮嬬粓浠ｈ�?鎸囦�?浣嶇疆銆? *   鏈嚱鏁板皢 theory_steps 鐨勫揩鐓т綔涓哄浐瀹氱洰鏍? 椹卞姩缂栫爜鍣ㄨ秼杩戣鐩爣銆? */
 
-#include "control/ctrl_compensation.h"
-#include "control/ctrl_motion_engine.h"
-#include "control/ctrl_closed_loop.h"
-#include "common.h"
+#include "service/control/ctrl_compensation.h"
+#include "service/control/ctrl_motion_engine.h"
+#include "service/control/ctrl_closed_loop.h"
+#include "os/os_adapter.h"
+#include "robot_math.h"
 #include <math.h>
 #include <stdio.h>
 
 static bool WaitForMotionIdle(uint32_t timeout_ms)
 {
-    uint32_t start = HAL_GetTick();
+    uint32_t start = Os_GetTickMs();
     while (Ctrl_MotionEngine_IsRunning() || Ctrl_MotionEngine_GetQueueCount() > 0U) {
         if (Ctrl_MotionEngine_HasFault() ||
-            (HAL_GetTick() - start) >= timeout_ms)
+            (Os_GetTickMs() - start) >= timeout_ms)
             return false;
     }
     return true;
@@ -34,20 +32,19 @@ void Ctrl_Compensation_Execute(void)
 {
     /* Wait for planner queue to drain while tracking multi-turn wraps.
        Sampling encoders during the wait prevents Nyquist violations
-       from long motion gaps. / 等待运动队列清空, 同时跟踪多圈。
-       期间持续采样编码器, 防止长运动间隙导致跨圈丢失。 */
-    uint32_t wait_start = HAL_GetTick();
+       from long motion gaps. / 绛夊緟杩愬姩闃熷垪娓呯┖, 鍚屾椂璺熻釜澶氬湀�?       鏈熼棿鎸佺画閲囨牱缂栫爜�? 闃叉闀胯繍鍔ㄩ棿闅欏鑷磋法鍦堜涪澶便�?*/
+    uint32_t wait_start = Os_GetTickMs();
     while (Ctrl_MotionEngine_IsRunning() || Ctrl_MotionEngine_GetQueueCount() > 0) {
         Ctrl_ClosedLoop_GetAxisAngle(0, &(float){0});
         Ctrl_ClosedLoop_GetAxisAngle(1, &(float){0});
         Ctrl_ClosedLoop_GetAxisAngle(2, &(float){0});
         if (Ctrl_MotionEngine_HasFault() ||
-            (HAL_GetTick() - wait_start) >= COMP_WAIT_TIMEOUT_MS)
+            (Os_GetTickMs() - wait_start) >= COMP_WAIT_TIMEOUT_MS)
             return;
     }
-    HAL_Delay(50);
+    Os_DelayMs(50U);
 
-    /* Snapshot theory step target / 快照理论步数目标 */
+    /* Snapshot theory step target / 蹇収鐞嗚姝ユ暟鐩爣 */
     int32_t tm1, tm2, tm3;
     Ctrl_MotionEngine_GetTheorySteps(&tm1, &tm2, &tm3);
 
@@ -55,13 +52,13 @@ void Ctrl_Compensation_Execute(void)
     float tdeg2 = StepsToDeg(tm2);
     float tdeg3 = StepsToDeg(tm3);
 
-    /* Read current encoder values / 读取当前编码器值 */
+    /* Read current encoder values / 璇诲彇褰撳墠缂栫爜鍣ㄥ€?*/
     float e1, e2, e3;
     Ctrl_ClosedLoop_GetAxisAngle(0, &e1);
     Ctrl_ClosedLoop_GetAxisAngle(1, &e2);
     Ctrl_ClosedLoop_GetAxisAngle(2, &e3);
 
-    /* Persist stuck flags across calls; reset when theory target changes / 持久化卡死标记; 目标变化时重置 */
+    /* Persist stuck flags across calls; reset when theory target changes / 鎸佷箙鍖栧崱姝绘爣璁? 鐩爣鍙樺寲鏃堕噸缃?*/
     static int32_t s_last_tm1 = -1, s_last_tm2 = -1, s_last_tm3 = -1;
     static bool    s_stuck1 = false, s_stuck2 = false, s_stuck3 = false;
 
@@ -98,7 +95,7 @@ void Ctrl_Compensation_Execute(void)
 
         prev1 = ae1; prev2 = ae2; prev3 = ae3;
 
-        /* Global divergence check / 全局发散检查 */
+        /* Global divergence check / 鍏ㄥ眬鍙戞暎妫€�?*/
         float sum = (skip1 ? 0.0f : ae1) + (skip2 ? 0.0f : ae2) + (skip3 ? 0.0f : ae3);
         if (iter > 0 && sum == 0.0f) return;
         if (iter >= COMP_WATCHDOG_ROUNDS) return;
@@ -114,13 +111,13 @@ void Ctrl_Compensation_Execute(void)
             .delta_m1    = cm1,
             .delta_m2    = cm2,
             .delta_m3    = cm3,
-            .total_ticks = Common_MaxAbs3(cm1, cm2, cm3) * COMP_SPEED_DIV
+            .total_ticks = RobotMath_MaxAbs3(cm1, cm2, cm3) * COMP_SPEED_DIV
         };
         if (cf.total_ticks < COMP_MIN_TICKS)
             cf.total_ticks = COMP_MIN_TICKS;
 
         if (!Ctrl_MotionEngine_PushFrame(&cf)) return;
         if (!WaitForMotionIdle(COMP_WAIT_TIMEOUT_MS)) return;
-        HAL_Delay(30);
+        Os_DelayMs(30U);
     }
 }

@@ -1,6 +1,6 @@
 /**
  * @file    bsp_led.h
- * @brief   Board support package for 4 user LEDs (PC0-PC3, active-low) / 4路LED板级支持 (PC0-PC3, 低电平有效)
+ * @brief   Board support package for 4 user LEDs (PC0-PC3, active-low) / 4鐠虹枮ED閺夎法楠囬弨顖涘瘮 (PC0-PC3, 娴ｅ海鏁搁獮铏箒閺?
  * @ingroup bsp
  */
 
@@ -20,12 +20,12 @@ typedef enum {
     LED_1,          /* LED 1 / LED 1 */
     LED_2,          /* LED 2 / LED 2 */
     LED_3,          /* LED 3 / LED 3 */
-    LED_COUNT       /* Total LED count / LED 总数 */
+    LED_COUNT       /* Total LED count / LED 閹粯鏆?*/
 } LedNumber_t;
 
 typedef enum {
-    LED_OFF = 0,    /* LED off / LED 灭 */
-    LED_ON  = 1     /* LED on / LED 亮 */
+    LED_OFF = 0,    /* LED off / LED 閻?*/
+    LED_ON  = 1     /* LED on / LED 娴?*/
 } LedState_t;
 
 void        BSP_LED_Init(void);

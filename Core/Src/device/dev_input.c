@@ -1,22 +1,25 @@
-/**
- * @file    ctrl_ps2.c
- * @brief   PS2 controller abstraction implementation / PS2 手柄抽象实现
- * @ingroup control
- */
+/** @file dev_input.c @brief PS2-based operator-input adapter. */
+#include "device/dev_input.h"
+#include "driver/drv_ps2.h"
 
-#include "control/ctrl_ps2.h"
-
-void Ctrl_PS2_Init(void)
+void Dev_Input_Init(void)
 {
-    BSP_PS2_Init();
+    Drv_PS2_Init();
 }
 
-bool Ctrl_PS2_ReadData(PS2_Data_t *data)
+bool Dev_Input_Read(DevInputState_t *state)
 {
-    return BSP_PS2_ReadData(data);
+    Ps2Input_t raw;
+    if (state == NULL || !Drv_PS2_ReadData(&raw)) return false;
+    state->buttons = raw.buttons;
+    state->left_x = raw.LX;
+    state->left_y = raw.LY;
+    state->right_x = raw.RX;
+    state->right_y = raw.RY;
+    return true;
 }
 
-bool Ctrl_PS2_IsAnalogMode(void)
+bool Dev_Input_IsAnalogMode(void)
 {
-    return BSP_PS2_IsAnalogMode();
+    return Drv_PS2_IsAnalogMode();
 }

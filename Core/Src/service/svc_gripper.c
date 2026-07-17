@@ -1,28 +1,27 @@
 /**
  * @file    ctrl_gripper.c
- * @brief   Gripper servo control implementation / 夹爪舵机控制实现
- * @ingroup control
+ * @brief   Gripper servo control implementation / 婢跺湱鍩呴懜鍨簚閹貉冨煑鐎圭偟骞? * @ingroup control
  */
 
-#include "control/ctrl_gripper.h"
-#include "bsp/bsp_gripper.h"
+#include "service/svc_gripper.h"
+#include "device/dev_gripper.h"
 
-void Ctrl_Gripper_Init(TIM_HandleTypeDef *htim)
+void Svc_Gripper_Init(TIM_HandleTypeDef *htim)
 {
-    BSP_Gripper_Init(BSP_Gripper_GetHandle(), htim, TIM_CHANNEL_2);
+    Dev_Gripper_Init(htim, TIM_CHANNEL_2);
 }
 
-void Ctrl_Gripper_Open(void)
+void Svc_Gripper_Open(void)
 {
-    BSP_Gripper_Open(BSP_Gripper_GetHandle());
+    Dev_Gripper_Open();
 }
 
-void Ctrl_Gripper_Close(void)
+void Svc_Gripper_Close(void)
 {
-    BSP_Gripper_Close(BSP_Gripper_GetHandle());
+    Dev_Gripper_Close();
 }
 
-void Ctrl_Gripper_IdleStop(void)
+void Svc_Gripper_IdleStop(void)
 {
-    BSP_Gripper_IdleStop(BSP_Gripper_GetHandle());
+    Dev_Gripper_Service();
 }

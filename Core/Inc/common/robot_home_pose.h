@@ -1,33 +1,26 @@
-/**
- * @file    home_pose.h
- * @brief   Single source of truth for the post-homing robot pose.
- */
-
-#ifndef __HOME_POSE_H__
-#define __HOME_POSE_H__
+/** @file robot_home_pose.h @brief Post-homing pose and joint-limit model. */
+#ifndef ROBOTARM_ROBOT_HOME_POSE_H
+#define ROBOTARM_ROBOT_HOME_POSE_H
 
 #include <stdbool.h>
 
 typedef enum {
-    HOME_AXIS_ROT = 0,
-    HOME_AXIS_LOW,
-    HOME_AXIS_HIGH,
-    HOME_AXIS_COUNT
-} HomeAxis_t;
+    ROBOT_HOME_AXIS_ROT = 0,
+    ROBOT_HOME_AXIS_LOW,
+    ROBOT_HOME_AXIS_HIGH,
+    ROBOT_HOME_AXIS_COUNT
+} RobotHomeAxis_t;
 
 typedef struct {
     float x_mm;
     float y_mm;
     float z_mm;
-    float joint_deg[HOME_AXIS_COUNT];
-} HomePose_t;
+    float joint_deg[ROBOT_HOME_AXIS_COUNT];
+} RobotHomePose_t;
 
-extern const HomePose_t g_home_pose;
+extern const RobotHomePose_t g_robot_home_pose;
 
-/* Convert the continuous motor-side AS5600 angle to a kinematic joint angle. */
-float HomePose_EncoderMotorDegToJointDeg(HomeAxis_t axis, float motor_deg);
+float RobotHomePose_MotorDegToJointDeg(RobotHomeAxis_t axis, float motor_deg);
+bool RobotHomePose_IsJointAngleSafe(RobotHomeAxis_t axis, float joint_deg);
 
-/* Tests against configured joint limits, including the small encoder tolerance. */
-bool HomePose_IsJointAngleSafe(HomeAxis_t axis, float joint_deg);
-
-#endif /* __HOME_POSE_H__ */
+#endif /* ROBOTARM_ROBOT_HOME_POSE_H */

@@ -1,11 +1,11 @@
 /**
  * @file    app_teleop.h
- * @brief   PS2 joystick teleoperation with SELECT-button mode toggle / PS2 摇杆遥控, SELECT 键切换模式
+ * @brief   PS2 joystick teleoperation with SELECT-button mode toggle / PS2 鎽囨潌閬ユ帶, SELECT 閿垏鎹㈡ā寮?
  * @ingroup app
  *
- * Toggles between SYS_MODE_GCODE and SYS_MODE_PS2 / 在 G-code 模式和 PS2 遥控模式间切换
+ * Toggles between SYS_MODE_GCODE and SYS_MODE_PS2 / �?G-code 妯″紡�?PS2 閬ユ帶妯″紡闂村垏鎹?
  * In PS2 mode: left stick X/Y -> Cartesian X/Y, right stick Y -> Z,
- * Cross/Square -> gripper close/open / PS2 模式下左摇杆控制 XY, 右摇杆 Y 控制 Z, 叉/方键控制夹爪
+ * Cross/Square -> gripper close/open / PS2 妯″紡涓嬪乏鎽囨潌鎺у埗 XY, 鍙虫憞鏉?Y 鎺у埗 Z, �?鏂归敭鎺у埗澶圭埅
  */
 
 #ifndef __APP_TELEOP_H__
@@ -17,15 +17,15 @@ extern "C" {
 #endif
 
 typedef enum {
-    SYS_MODE_GCODE = 0,     /* G-code command mode / G-code 指令模式 */
-    SYS_MODE_PS2            /* PS2 teleop mode / PS2 遥控模式 */
+    SYS_MODE_GCODE = 0,     /* G-code command mode / G-code 鎸囦护妯″紡 */
+    SYS_MODE_PS2            /* PS2 teleop mode / PS2 閬ユ帶妯″紡 */
 } SystemMode_t;
 
 SystemMode_t App_Teleop_GetMode(void);
 void         App_Teleop_SetMode(SystemMode_t mode);
-void         App_Teleop_ToggleMode(void);     /* Toggle between GCode <-> PS2 / 在 GCode 和 PS2 之间切换 */
+void         App_Teleop_ToggleMode(void);     /* Toggle between GCode <-> PS2 / �?GCode �?PS2 涔嬮棿鍒囨崲 */
 void         App_Teleop_Init(void);
-void         App_Teleop_Task(void);           /* Call in main loop / 主循环中调用 */
+void         App_Teleop_Task(void);           /* Call in main loop / 涓诲惊鐜腑璋冪�?*/
 
 #ifdef __cplusplus
 }

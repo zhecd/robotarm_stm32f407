@@ -1,25 +1,24 @@
 /**
  * @file    bsp_gripper.c
- * @brief   PWM servo gripper driver implementation / PWM 舵机夹爪驱动实现
- * @ingroup bsp
+ * @brief   PWM servo gripper driver implementation / PWM 閼稿灚婧€婢跺湱鍩呮す鍗炲З鐎圭偟骞? * @ingroup bsp
  */
 
-#include "bsp/bsp_gripper.h"
-#include "common.h"
+#include "driver/drv_servo.h"
+#include "robot_math.h"
 
-static Gripper_Dev_t s_gripper;
+static ServoDevice_t s_gripper;
 
-void BSP_Gripper_Init(Gripper_Dev_t *grp, TIM_HandleTypeDef *htim, uint32_t channel)
+void Drv_Servo_Init(ServoDevice_t *grp, TIM_HandleTypeDef *htim, uint32_t channel)
 {
     if (!grp || !htim) return;
     grp->htim       = htim;
     grp->channel    = channel;
-    grp->state      = GRIPPER_STATE_UNKNOWN;
+    grp->state      = SERVO_STATE_UNKNOWN;
     grp->hold_start = 0;
-    BSP_Gripper_Close(grp);
+    Drv_Servo_Close(grp);
 }
 
-void BSP_Gripper_SetAngle(Gripper_Dev_t *grp, float angle)
+void Drv_Servo_SetAngle(ServoDevice_t *grp, float angle)
 {
     if (!grp) return;
 
@@ -31,45 +30,45 @@ void BSP_Gripper_SetAngle(Gripper_Dev_t *grp, float angle)
     __HAL_TIM_SET_COMPARE(grp->htim, grp->channel, (uint32_t)pulse_width);
 
     grp->cur_angle  = safe_angle;
-    grp->state      = GRIPPER_STATE_CUSTOM_ANGLE;
+    grp->state      = SERVO_STATE_CUSTOM_ANGLE;
     grp->hold_start = HAL_GetTick();
 }
 
-void BSP_Gripper_Open(Gripper_Dev_t *grp)
+void Drv_Servo_Open(ServoDevice_t *grp)
 {
-    if (grp->state != GRIPPER_STATE_OPEN) {
-        BSP_Gripper_SetAngle(grp, GRIPPER_ANGLE_CLOSE);
-        grp->state = GRIPPER_STATE_OPEN;
+    if (grp->state != SERVO_STATE_OPEN) {
+        Drv_Servo_SetAngle(grp, GRIPPER_ANGLE_CLOSE);
+        grp->state = SERVO_STATE_OPEN;
     }
 }
 
-void BSP_Gripper_Close(Gripper_Dev_t *grp)
+void Drv_Servo_Close(ServoDevice_t *grp)
 {
-    if (grp->state != GRIPPER_STATE_CLOSE) {
-        BSP_Gripper_SetAngle(grp, GRIPPER_ANGLE_OPEN);
-        grp->state = GRIPPER_STATE_CLOSE;
+    if (grp->state != SERVO_STATE_CLOSE) {
+        Drv_Servo_SetAngle(grp, GRIPPER_ANGLE_OPEN);
+        grp->state = SERVO_STATE_CLOSE;
     }
 }
 
-void BSP_Gripper_Stop(Gripper_Dev_t *grp)
+void Drv_Servo_Stop(ServoDevice_t *grp)
 {
     if (!grp) return;
     HAL_TIM_PWM_Stop(grp->htim, grp->channel);
     grp->hold_start = 0;
-    grp->state      = GRIPPER_STATE_UNKNOWN;
+    grp->state      = SERVO_STATE_UNKNOWN;
 }
 
-void BSP_Gripper_IdleStop(Gripper_Dev_t *grp)
+void Drv_Servo_IdleStop(ServoDevice_t *grp)
 {
     if (!grp || grp->hold_start == 0) return;
     if (HAL_GetTick() - grp->hold_start >= GRIPPER_HOLD_MS) {
         HAL_TIM_PWM_Stop(grp->htim, grp->channel);
         grp->hold_start = 0;
-        grp->state      = GRIPPER_STATE_UNKNOWN;
+        grp->state      = SERVO_STATE_UNKNOWN;
     }
 }
 
-Gripper_Dev_t *BSP_Gripper_GetHandle(void)
+ServoDevice_t *Drv_Servo_GetHandle(void)
 {
     return &s_gripper;
 }

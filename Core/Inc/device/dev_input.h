@@ -1,30 +1,24 @@
-/**
- * @file    ctrl_ps2.h
- * @brief   PS2 controller abstraction interface / PS2 手柄抽象接口
- * @ingroup control
- *
- * Thin wrapper over BSP PS2 driver. APP layer calls Ctrl_PS2_*
- * instead of BSP_PS2_* directly, preserving the APP→CONTROL→BSP
- * dependency chain.
- * BSP PS2 驱动的薄包装层, APP 层通过此接口访问手柄, 维持层次依赖。
- */
+/** @file dev_input.h @brief Operator-input device abstraction. */
+#ifndef ROBOTARM_DEV_INPUT_H
+#define ROBOTARM_DEV_INPUT_H
 
-#ifndef __CTRL_PS2_H__
-#define __CTRL_PS2_H__
-
-#include "bsp/bsp_ps2.h"
 #include <stdbool.h>
+#include <stdint.h>
 
-#ifdef __cplusplus
-extern "C" {
-#endif
+/* Active-low button state: 0 means pressed. */
+#define DEV_INPUT_BTN_CROSS  0x0040U
+#define DEV_INPUT_BTN_SQUARE 0x0080U
 
-void Ctrl_PS2_Init(void);
-bool Ctrl_PS2_ReadData(PS2_Data_t *data);
-bool Ctrl_PS2_IsAnalogMode(void);
+typedef struct {
+    uint16_t buttons;
+    uint8_t  left_x;
+    uint8_t  left_y;
+    uint8_t  right_x;
+    uint8_t  right_y;
+} DevInputState_t;
 
-#ifdef __cplusplus
-}
-#endif
+void Dev_Input_Init(void);
+bool Dev_Input_Read(DevInputState_t *state);
+bool Dev_Input_IsAnalogMode(void);
 
-#endif /* __CTRL_PS2_H__ */
+#endif /* ROBOTARM_DEV_INPUT_H */

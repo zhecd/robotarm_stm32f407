@@ -1,13 +1,13 @@
 /**
  * @file    common.c
- * @brief   Shared utility implementations / 共享工具实现
+ * @brief   Shared utility implementations / 閸忓彉闊╁銉ュ徔鐎圭偟骞?
  * @ingroup common
  */
 
-#include "common.h"
+#include "robot_math.h"
 #include <stdlib.h>
 
-uint32_t Common_MaxAbs3(int32_t a, int32_t b, int32_t c)
+uint32_t RobotMath_MaxAbs3(int32_t a, int32_t b, int32_t c)
 {
     uint32_t max_val = (uint32_t)labs(a);
     uint32_t abs_b   = (uint32_t)labs(b);

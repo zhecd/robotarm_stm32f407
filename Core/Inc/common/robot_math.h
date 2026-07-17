@@ -1,10 +1,10 @@
 /**
  * @file    common.h
- * @brief   Shared math utilities, angle helpers, and generic macros / 共享数学工具、角度辅助函数与通用宏
+ * @brief   Shared math utilities, angle helpers, and generic macros / 鍏变韩鏁板宸ュ叿銆佽搴﹁緟鍔╁嚱鏁颁笌閫氱敤�?
  * @ingroup common
  *
- * Motor/kinematic configuration lives in robot_config.h / 电机与运动学配置见 robot_config.h
- * Error codes live in error_code.h / 错误码定义见 error_code.h
+ * Motor/kinematic configuration lives in robot_config.h / 鐢垫満涓庤繍鍔ㄥ閰嶇疆瑙?robot_config.h
+ * Error codes live in error_code.h / 閿欒鐮佸畾涔夎�?error_code.h
  */
 
 #ifndef __COMMON_H__
@@ -18,23 +18,23 @@
 extern "C" {
 #endif
 
-/* ── Generic utility macros / 通用工具宏 ── */
+/* 鈹€鈹€ Generic utility macros / 閫氱敤宸ュ叿�?鈹€鈹€ */
 
 #ifndef CLAMP
-#define CLAMP(x, lo, hi)  (((x) < (lo)) ? (lo) : (((x) > (hi)) ? (hi) : (x)))  /* Clamp value to range / 限制值到范围 */
+#define CLAMP(x, lo, hi)  (((x) < (lo)) ? (lo) : (((x) > (hi)) ? (hi) : (x)))  /* Clamp value to range / 闄愬埗鍊煎埌鑼冨�?*/
 #endif
 
 #ifndef RAD_TO_DEG
-#define RAD_TO_DEG(r)     ((r) * 57.29577951308232f)   /* Radians to degrees / 弧度转度 */
+#define RAD_TO_DEG(r)     ((r) * 57.29577951308232f)   /* Radians to degrees / 寮у害杞�?*/
 #endif
 
 #ifndef DEG_TO_RAD
-#define DEG_TO_RAD(d)     ((d) * 0.017453292519943295f) /* Degrees to radians / 度转弧度 */
+#define DEG_TO_RAD(d)     ((d) * 0.017453292519943295f) /* Degrees to radians / 搴﹁浆寮у�?*/
 #endif
 
-/* ── Angle utilities / 角度工具 ── */
+/* 鈹€鈹€ Angle utilities / 瑙掑害宸ュ叿 鈹€鈹€ */
 
-/** Normalize an angle to (-180, 180] degrees / 归一化角度到 (-180, 180] 度 */
+/** Normalize an angle to (-180, 180] degrees / 褰掍竴鍖栬搴﹀�?(-180, 180] �?*/
 static inline float AngleWrap180(float deg)
 {
     while (deg >  180.0f) deg -= 360.0f;
@@ -42,24 +42,24 @@ static inline float AngleWrap180(float deg)
     return deg;
 }
 
-/* ── Step / degree conversions / 步数/角度转换 ── */
+/* 鈹€鈹€ Step / degree conversions / 姝ユ�?瑙掑害杞崲 鈹€鈹€ */
 
-/** Convert motor-step count to joint degrees / 电机步数转关节角度 */
+/** Convert motor-step count to joint degrees / 鐢垫満姝ユ暟杞叧鑺傝�?*/
 static inline float StepsToDeg(int32_t steps)
 {
     return (float)steps * DEGREES_PER_STEP;
 }
 
-/** Convert joint degrees to motor-step count / 关节角度转电机步数 */
+/** Convert joint degrees to motor-step count / 鍏宠妭瑙掑害杞數鏈烘�?*/
 static inline int32_t DegToSteps(float deg)
 {
     return (int32_t)roundf(deg * STEPS_PER_DEGREE);
 }
 
-/* ── Math helpers / 数学辅助 ── */
+/* 鈹€鈹€ Math helpers / 鏁板杈呭姪 鈹€鈹€ */
 
-/** Return the maximum absolute value among three int32_t values / 返回三个值的最大绝对值 */
-uint32_t Common_MaxAbs3(int32_t a, int32_t b, int32_t c);
+/** Return the maximum absolute value among three int32_t values / 杩斿洖涓変釜鍊肩殑鏈€澶х粷瀵瑰�?*/
+uint32_t RobotMath_MaxAbs3(int32_t a, int32_t b, int32_t c);
 
 #ifdef __cplusplus
 }

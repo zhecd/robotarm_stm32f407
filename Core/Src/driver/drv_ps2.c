@@ -1,10 +1,10 @@
 /**
  * @file    bsp_ps2.c
- * @brief   PS2 controller bit-bang SPI implementation / PS2 手柄位打 SPI 实现
+ * @brief   PS2 controller bit-bang SPI implementation / PS2 鎵嬫焺浣嶆墦 SPI 瀹炵�?
  * @ingroup bsp
  */
 
-#include "bsp/bsp_ps2.h"
+#include "driver/drv_ps2.h"
 
 #define PS2_DELAY_CYCLES            120U
 #define PS2_FRAME_HEADER_OK         0x5AU
@@ -18,7 +18,7 @@ static bool    s_analog_mode        = false;
 static uint8_t s_invalid_mode_count = 0U;
 static uint32_t s_last_reinit_ms    = 0U;
 
-/* ── Low-level GPIO helpers (BSRR for atomic access) / 底层 GPIO (BSRR 原子操作) ── */
+/* 鈹€鈹€ Low-level GPIO helpers (BSRR for atomic access) / 搴曞�?GPIO (BSRR 鍘熷瓙鎿嶄綔) 鈹€鈹€ */
 
 static inline void CMD_Write(GPIO_PinState s)
 {
@@ -59,7 +59,7 @@ static bool IsSupportedAnalogMode(uint8_t mode)
     return (mode == PS2_MODE_ANALOG_RED) || (mode == PS2_MODE_ANALOG_PRESSURE);
 }
 
-/* ── Core SPI-like byte transfer / 核心 SPI 字节传输 ── */
+/* 鈹€鈹€ Core SPI-like byte transfer / 鏍稿�?SPI 瀛楄妭浼犺緭 鈹€鈹€ */
 
 static uint8_t TransferByte(uint8_t tx)
 {
@@ -85,9 +85,9 @@ static void SendCommand(const uint8_t *cmd, uint8_t len)
     HAL_Delay(16U);
 }
 
-/* ── Public API / 公开接口 ── */
+/* 鈹€鈹€ Public API / 鍏紑鎺ュ彛 鈹€鈹€ */
 
-void BSP_PS2_Init(void)
+void Drv_PS2_Init(void)
 {
     GPIO_InitTypeDef gi = {0};
     gi.Pin  = PS2_DAT_Pin;
@@ -100,7 +100,7 @@ void BSP_PS2_Init(void)
     CMD_Write(GPIO_PIN_SET);
     HAL_Delay(50U);
 
-    /* Enter config mode -> set analog mode -> exit config / 进入配置模式->设模拟模式->退出配置 */
+    /* Enter config mode -> set analog mode -> exit config / 杩涘叆閰嶇疆妯″紡->璁炬ā鎷熸ā�?>閫€鍑洪厤缃?*/
     {
         const uint8_t enter_cfg[] = {0x01U, 0x43U, 0x00U, 0x01U, 0x00U};
         const uint8_t set_mode[]  = {0x01U, 0x44U, 0x00U, 0x01U, 0x03U, 0x00U, 0x00U, 0x00U, 0x00U};
@@ -114,7 +114,7 @@ void BSP_PS2_Init(void)
     s_invalid_mode_count = 0U;
 }
 
-bool BSP_PS2_ReadData(PS2_Data_t *data)
+bool Drv_PS2_ReadData(Ps2Input_t *data)
 {
     if (!data) return false;
 
@@ -122,7 +122,7 @@ bool BSP_PS2_ReadData(PS2_Data_t *data)
     bool    need_reinit = false;
 
     /* Critical section: prevent TIM6 (50 kHz) from corrupting bit-bang timing.
-       CS-low ≈ 100 µs → ~5 missed TIM6 ticks. */
+       CS-low �?100 碌s �?~5 missed TIM6 ticks. */
     /* Keep UART and limit interrupts alive; only pause the 50 kHz tick. */
     /* Keep the complete software-timed PS2 frame atomic. UART RX is DMA-backed. */
     __disable_irq();
@@ -134,7 +134,7 @@ bool BSP_PS2_ReadData(PS2_Data_t *data)
     raw[1] = TransferByte(0x42U);
     raw[2] = TransferByte(0x00U);
 
-    /* Frame header check / 帧头校验 */
+    /* Frame header check / 甯уご鏍￠�?*/
     if (raw[2] != PS2_FRAME_HEADER_OK) {
         CS_Write(GPIO_PIN_SET);
         __enable_irq();
@@ -142,7 +142,7 @@ bool BSP_PS2_ReadData(PS2_Data_t *data)
         return false;
     }
 
-    /* Mode check + deferred auto reinit / 模式检查 + 延迟自动重新初始化 */
+    /* Mode check + deferred auto reinit / 妯″紡妫€�?+ 寤惰繜鑷姩閲嶆柊鍒濆�?*/
     if (!IsSupportedAnalogMode(raw[1])) {
         CS_Write(GPIO_PIN_SET);
         __enable_irq();
@@ -159,7 +159,7 @@ bool BSP_PS2_ReadData(PS2_Data_t *data)
             if (now - s_last_reinit_ms >= PS2_REINIT_COOLDOWN_MS) {
                 s_last_reinit_ms = now;
                 s_invalid_mode_count = 0U;
-                BSP_PS2_Init();
+                Drv_PS2_Init();
             }
         }
         return false;
@@ -186,7 +186,7 @@ bool BSP_PS2_ReadData(PS2_Data_t *data)
     return true;
 }
 
-bool BSP_PS2_IsAnalogMode(void)
+bool Drv_PS2_IsAnalogMode(void)
 {
     return s_analog_mode;
 }

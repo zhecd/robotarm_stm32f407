@@ -1,11 +1,11 @@
 /**
  * @file    bsp_uart1.h
- * @brief   UART1 ring-buffer line reader with printf retarget / UART1 环形缓冲行读取 + printf 重定向
+ * @brief   UART1 ring-buffer line reader with printf retarget / UART1 鐜舰缂撳啿琛岃鍙?+ printf 閲嶅畾鍚?
  * @ingroup bsp
  *
- * Uses interrupt-driven RX with a 256-byte ring buffer / 中断驱动接收, 256字节环形缓冲
- * Supports line-delimited reads with timeout fallback / 支持换行符分隔 + 超时回退
- * Redirects printf() output via __io_putchar / 通过 __io_putchar 重定向 printf
+ * Uses interrupt-driven RX with a 256-byte ring buffer / 涓柇椹卞姩鎺ユ�? 256瀛楄妭鐜舰缂撳�?
+ * Supports line-delimited reads with timeout fallback / 鏀寔鎹㈣绗﹀垎闅?+ 瓒呮椂鍥為€�?
+ * Redirects printf() output via __io_putchar / 閫氳�?__io_putchar 閲嶅畾鍚?printf
  */
 
 #ifndef __BSP_UART1_H__

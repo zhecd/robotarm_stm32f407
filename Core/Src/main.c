@@ -2,8 +2,7 @@
 /**
   ******************************************************************************
   * @file           : main.c
-  * @brief          : Main program body / 主程序
-  ******************************************************************************
+  * @brief          : Main program body / 濞戞捁宕甸埢鍏兼�?  ******************************************************************************
   * @attention
   *
   * Copyright (c) 2026 STMicroelectronics.
@@ -27,25 +26,24 @@
 /* USER CODE BEGIN Includes */
 
 #include "bsp/bsp_led.h"
-#include "bsp/bsp_stepper.h"
-#include "bsp/bsp_tmc2209.h"
 #include "bsp/bsp_uart1.h"
-#include "control/ctrl_ps2.h"
-#include "control/ctrl_gripper.h"
-#include "bsp/bsp_as5600.h"
-#include "bsp/bsp_homing.h"
+#include "device/dev_input.h"
+#include "device/dev_joint.h"
+#include "device/dev_limit_switch.h"
+#include "service/svc_gripper.h"
+#include "service/svc_homing.h"
 
-#include "control/ctrl_motion_engine.h"
-#include "control/ctrl_planner.h"
-#include "control/ctrl_closed_loop.h"
+#include "service/control/ctrl_motion_engine.h"
+#include "service/control/ctrl_planner.h"
+#include "service/control/ctrl_closed_loop.h"
 
 #include "app/app_teleop.h"
 #include "app/app_gcode_parser.h"
 #include "app/app_gcode_exec.h"
 #include "app/app_calibration.h"
 
-#include "common/common.h"
-#include "common/home_pose.h"
+#include "common/robot_math.h"
+#include "common/robot_home_pose.h"
 #include "common/robot_config.h"
 
 #include <stdio.h>
@@ -90,7 +88,7 @@ void SystemClock_Config(void);
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
 
-/** 50 Hz encoder reading for multi-turn wrap tracking / 50Hz 编码器读取用于多圈跟踪 */
+/** 50 Hz encoder reading for multi-turn wrap tracking / 50Hz 缂傚倹鐗滈悥婊堝闯閵婎煈鍤㈤柛娆愮墱閺併倖绂嶆惔鈽嗘▼闁革箑鐗愮粣锟犵叒?*/
 static void Task_EncoderRead(void)
 {
     static uint32_t last_tick = 0;
@@ -130,7 +128,7 @@ static void Task_EncoderReport(void)
 
     if (first || diff > 1.0f) {
         first = false;
-        BSP_AS5600_PrintStatus();
+        Dev_Joint_PrintFeedbackStatus();
         for (int i = 0; i < CL_AXIS_COUNT; i++) last[i] = cur[i];
     }
 }
@@ -154,7 +152,7 @@ static void ReportM114(void)
 
     for (int i = 0; i < CL_AXIS_COUNT; i++) {
         if (Ctrl_ClosedLoop_GetAxisAngle(i, &motor[i]))
-            joint[i] = HomePose_EncoderMotorDegToJointDeg((HomeAxis_t)i, motor[i]);
+            joint[i] = RobotHomePose_MotorDegToJointDeg((RobotHomeAxis_t)i, motor[i]);
     }
 
     printf("M114 PLAN X:%.2f Y:%.2f Z:%.2f J:%.2f,%.2f,%.2f ENC:%.2f,%.2f,%.2f\r\n",
@@ -163,9 +161,9 @@ static void ReportM114(void)
 
 static void ReportM119(void)
 {
-    int m1 = (HAL_GPIO_ReadPin(M1_STOP_GPIO_Port, M1_STOP_Pin) == GPIO_PIN_RESET);
-    int m2 = (HAL_GPIO_ReadPin(M2_STOP_GPIO_Port, M2_STOP_Pin) == GPIO_PIN_RESET);
-    int m3 = (HAL_GPIO_ReadPin(M3_STOP_GPIO_Port, M3_STOP_Pin) == GPIO_PIN_RESET);
+    int m1 = Dev_LimitSwitch_IsTriggered(DEV_JOINT_M1);
+    int m2 = Dev_LimitSwitch_IsTriggered(DEV_JOINT_M2);
+    int m3 = Dev_LimitSwitch_IsTriggered(DEV_JOINT_M3);
     printf("M119 M1:%s M2:%s M3:%s\r\n",
            m1 ? "TRIGGERED" : "OPEN",
            m2 ? "TRIGGERED" : "OPEN",
@@ -233,18 +231,18 @@ static void Task_GCode(void)
             return;
         }
         Ctrl_MotionEngine_EnableLimitMonitoring(false);
-        if (!BSP_Homing_Execute()) {
+        if (!Svc_Homing_Execute()) {
             Ctrl_MotionEngine_EmergencyStopWithReason(MOTION_FAULT_NONE);
             printf("error: M999 homing failed\r\n");
             return;
         }
         Ctrl_MotionEngine_Init();
-        if (Ctrl_Planner_Init(g_home_pose.x_mm, g_home_pose.y_mm, g_home_pose.z_mm) != ERR_OK) {
+        if (Ctrl_Planner_Init(g_robot_home_pose.x_mm, g_robot_home_pose.y_mm, g_robot_home_pose.z_mm) != ERR_OK) {
             Ctrl_MotionEngine_EmergencyStopWithReason(MOTION_FAULT_NONE);
             printf("error: M999 planner reset failed\r\n");
             return;
         }
-        App_GCodeExec_Init(g_home_pose.x_mm, g_home_pose.y_mm, g_home_pose.z_mm);
+        App_GCodeExec_Init(g_robot_home_pose.x_mm, g_robot_home_pose.y_mm, g_robot_home_pose.z_mm);
         Ctrl_ClosedLoop_Init();
         if (!App_Calibration_Execute()) {
             Ctrl_MotionEngine_EmergencyStopWithReason(MOTION_FAULT_ENCODER);
@@ -254,9 +252,9 @@ static void Task_GCode(void)
         Ctrl_MotionEngine_ClearFault();
         Ctrl_MotionEngine_EnableLimitMonitoring(true);
         printf("[HomePose] XYZ=%.1f,%.1f,%.1f J=%.1f,%.1f,%.1f\r\n",
-               g_home_pose.x_mm, g_home_pose.y_mm, g_home_pose.z_mm,
-               g_home_pose.joint_deg[0], g_home_pose.joint_deg[1],
-               g_home_pose.joint_deg[2]);
+               g_robot_home_pose.x_mm, g_robot_home_pose.y_mm, g_robot_home_pose.z_mm,
+               g_robot_home_pose.joint_deg[0], g_robot_home_pose.joint_deg[1],
+               g_robot_home_pose.joint_deg[2]);
         printf("M999OK\r\n");
         return;
     }
@@ -368,78 +366,65 @@ int main(void)
   MX_I2C3_Init();
   /* USER CODE BEGIN 2 */
 
-  /* ── BSP initialization ── */
+  /* 闁冲厜鍋撻柍鍏夊�?BSP initialization 闁冲厜鍋撻柍鍏夊�?*/
   BSP_LED_Init();
-  BSP_Stepper_Init();
+  Dev_Joint_Init();
   BSP_UART1_Init();
   BSP_UART1_SendString("System Boot Up OK!\r\n");
-  Ctrl_PS2_Init();
+  Dev_Input_Init();
 
   extern TIM_HandleTypeDef htim2;
-  Ctrl_Gripper_Init(&htim2);
-
-  BSP_AS5600_Init();
+  Svc_Gripper_Init(&htim2);
 
   HAL_Delay(100);
   printf("\r\n================================\r\n");
   printf("System Boot Up OK! Gcode Mode\r\n");
   printf("================================\r\n");
 
-  /* ── Motor drivers ── */
-  BSP_Stepper_Enable(BSP_Stepper_GetM1(), true);
-  BSP_Stepper_Enable(BSP_Stepper_GetM2(), true);
-  BSP_Stepper_Enable(BSP_Stepper_GetM3(), true);
+  /* 闁冲厜鍋撻柍鍏夊�?Motor drivers 闁冲厜鍋撻柍鍏夊�?*/
+  Dev_Joint_EnableAll(true);
 
   extern UART_HandleTypeDef huart6;
-  BSP_TMC2209_ConfigNode(&huart6, 0, 16, TMC_DEFAULT_IRUN, TMC_DEFAULT_IHOLD);  // M1: 16细分
-  BSP_TMC2209_ConfigNode(&huart6, 1, 16, TMC_DEFAULT_IRUN, TMC_DEFAULT_IHOLD);  // M2: 16细分
-  BSP_TMC2209_ConfigNode(&huart6, 2, 16, TMC_DEFAULT_IRUN, TMC_DEFAULT_IHOLD);  // M3: 16细分
-
-  /* ── Homing ── */
-  if (!BSP_Homing_Execute()) {
+  Dev_Joint_ConfigureDrivers(&huart6);
+  /* 闁冲厜鍋撻柍鍏夊�?Homing 闁冲厜鍋撻柍鍏夊�?*/
+  if (!Svc_Homing_Execute()) {
       printf("error: homing failed; motion disabled\r\n");
-      BSP_Stepper_Enable(BSP_Stepper_GetM1(), false);
-      BSP_Stepper_Enable(BSP_Stepper_GetM2(), false);
-      BSP_Stepper_Enable(BSP_Stepper_GetM3(), false);
+      Dev_Joint_EnableAll(false);
       (void)BSP_UART1_FlushTx(100U);
       Error_Handler();
   }
 
-  /* ── Control layer initialization ── */
+  /* 闁冲厜鍋撻柍鍏夊�?Control layer initialization 闁冲厜鍋撻柍鍏夊�?*/
   Ctrl_MotionEngine_Init();
-  if (Ctrl_Planner_Init(g_home_pose.x_mm, g_home_pose.y_mm, g_home_pose.z_mm) != ERR_OK) {
+  if (Ctrl_Planner_Init(g_robot_home_pose.x_mm, g_robot_home_pose.y_mm, g_robot_home_pose.z_mm) != ERR_OK) {
       printf("error: initial pose is unreachable; motion disabled\r\n");
-      BSP_Stepper_Enable(BSP_Stepper_GetM1(), false);
-      BSP_Stepper_Enable(BSP_Stepper_GetM2(), false);
-      BSP_Stepper_Enable(BSP_Stepper_GetM3(), false);
+      Dev_Joint_EnableAll(false);
       (void)BSP_UART1_FlushTx(100U);
       Error_Handler();
   }
-  App_GCodeExec_Init(g_home_pose.x_mm, g_home_pose.y_mm, g_home_pose.z_mm);
+  App_GCodeExec_Init(g_robot_home_pose.x_mm, g_robot_home_pose.y_mm, g_robot_home_pose.z_mm);
 
-  /* ── Application layer ── */
+  /* 闁冲厜鍋撻柍鍏夊�?Application layer 闁冲厜鍋撻柍鍏夊�?*/
   App_Teleop_Init();
   Ctrl_ClosedLoop_Init();
   if (!App_Calibration_Execute()) {
       printf("error: encoder calibration failed; motion disabled\r\n");
-      BSP_Stepper_Enable(BSP_Stepper_GetM1(), false);
-      BSP_Stepper_Enable(BSP_Stepper_GetM2(), false);
-      BSP_Stepper_Enable(BSP_Stepper_GetM3(), false);
+      Dev_Joint_EnableAll(false);
       (void)BSP_UART1_FlushTx(100U);
       Error_Handler();
   }
   Ctrl_MotionEngine_ClearFault();
   Ctrl_MotionEngine_EnableLimitMonitoring(true);
   printf("[HomePose] XYZ=%.1f,%.1f,%.1f J=%.1f,%.1f,%.1f\r\n",
-         g_home_pose.x_mm, g_home_pose.y_mm, g_home_pose.z_mm,
-         g_home_pose.joint_deg[0], g_home_pose.joint_deg[1],
-         g_home_pose.joint_deg[2]);
+         g_robot_home_pose.x_mm, g_robot_home_pose.y_mm, g_robot_home_pose.z_mm,
+         g_robot_home_pose.joint_deg[0], g_robot_home_pose.joint_deg[1],
+         g_robot_home_pose.joint_deg[2]);
 
-  /* ── Mode indicator LED ── */
+  /* 闁冲厜鍋撻柍鍏夊�?Mode indicator LED 闁冲厜鍋撻柍鍏夊�?*/
   BSP_LED_SetState(MODE_LED_GCODE, LED_ON);
   BSP_LED_SetState(MODE_LED_PS2, LED_OFF);
 
-  /* ── Start motion engine interrupt (TIM6, 50 kHz) ── */
+  /* 闁冲厜鍋撻柍鍏夊�?Start motion engine interrupt (TIM6, 50 kHz) 闁冲厜鍋撻柍鍏夊�?*/
   extern TIM_HandleTypeDef htim6;
   HAL_TIM_Base_Start_IT(&htim6);
 
@@ -464,7 +449,7 @@ int main(void)
           /* Keep communications and the gripper available.  Cartesian motion
              remains rejected by the faulted motion engine. */
           Task_ModeSwitch();
-          Ctrl_Gripper_IdleStop();
+          Svc_Gripper_IdleStop();
           Task_GCode();
           continue;
       }
@@ -488,7 +473,7 @@ int main(void)
           Task_EncoderRead();
       }
 
-      Ctrl_Gripper_IdleStop();
+      Svc_Gripper_IdleStop();
 
       if (mode == SYS_MODE_GCODE) {
           Task_GCode();

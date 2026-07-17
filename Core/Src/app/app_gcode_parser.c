@@ -1,6 +1,6 @@
 /**
  * @file    app_gcode_parser.c
- * @brief   G-code line parser implementation. / G-code 行解析器实现。
+ * @brief   G-code line parser implementation. / G-code 鐞涘矁袙閺嬫劕娅掔€圭偟骞囬妴?
  * @ingroup app
  */
 
