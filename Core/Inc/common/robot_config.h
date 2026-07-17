@@ -367,6 +367,10 @@ extern "C" {
 #define UART1_RX_BUF_SIZE       256U         /* UART1 RX buffer size (bytes) / 串口接收缓冲区大小 */
 #endif
 
+#ifndef UART1_TX_BUF_SIZE
+#define UART1_TX_BUF_SIZE       1024U        /* UART1 TX DMA queue (bytes). */
+#endif
+
 #ifndef UART1_LINE_TIMEOUT_MS
 #define UART1_LINE_TIMEOUT_MS   500U         /* Incomplete-line discard timeout (ms). */
 #endif

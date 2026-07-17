@@ -381,6 +381,8 @@ int main(void)
   {
       static bool fault_reported = false;
       Ctrl_MotionEngine_ServiceSafety();
+      if (BSP_UART1_TakeTxOverflow())
+          BSP_UART1_SendString("warning: UART TX queue overflow; log dropped\r\n");
       if (Ctrl_MotionEngine_HasFault()) {
           BSP_LED_SetState(MODE_LED_GCODE, LED_OFF);
           BSP_LED_SetState(MODE_LED_PS2, LED_ON);
