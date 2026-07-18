@@ -4,7 +4,7 @@
 #include "driver/drv_as5600.h"
 #include "driver/drv_stepper.h"
 #include "driver/drv_tmc2209.h"
-#include "robot_config.h"
+#include "bsp_driver_config.h"
 #include "robot_home_pose.h"
 
 static StepperDevice_t *GetStepper(DevJointId_t joint)

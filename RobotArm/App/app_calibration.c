@@ -25,7 +25,7 @@ bool App_Calibration_Execute(void)
         Os_DelayMs(10U);
     }
 
-    printf("[Encoder] M1(I2C1):%s M2(I2C2):%s M3(I2C3):%s\r\n",
+    printf("# [Encoder] M1(I2C1):%s M2(I2C2):%s M3(I2C3):%s\r\n",
            ok1 == ERR_OK ? "OK" : "FAIL",
            ok2 == ERR_OK ? "OK" : "FAIL",
            ok3 == ERR_OK ? "OK" : "FAIL");

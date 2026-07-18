@@ -5,7 +5,7 @@
  */
 
 #include "driver/drv_tmc2209.h"
-#include "robot_config.h"
+#include "bsp_driver_config.h"
 #include <stdio.h>
 
 #define TMC2209_REG_GCONF             0x00U
@@ -78,7 +78,7 @@ static void WriteReg(UART_HandleTypeDef *huart, uint8_t addr, uint8_t reg, uint3
 
     HAL_StatusTypeDef status = HAL_UART_Transmit(huart, packet, TMC2209_WRITE_PACKET_SIZE, TMC2209_UART_TX_TIMEOUT_MS);
     if (status != HAL_OK) {
-        printf("[TMC2209] TX fail: addr=%d reg=0x%02X err=%d\r\n", addr, reg, status);
+        printf("# [TMC2209] TX fail: addr=%d reg=0x%02X err=%d\r\n", addr, reg, status);
     }
     __HAL_UART_CLEAR_OREFLAG(huart);
     (void)huart->Instance->DR;

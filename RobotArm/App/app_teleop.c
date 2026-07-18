@@ -35,7 +35,7 @@ void App_Teleop_Init(void)
     s_last_cross_pressed = false;
     s_last_square_pressed = false;
     s_fault_reported = false;
-    printf("App_Teleop initialized.\r\n");
+    printf("# App_Teleop initialized.\r\n");
 }
 
 void App_Teleop_Task(void)
@@ -52,7 +52,7 @@ void App_Teleop_Task(void)
         if (s_mode == SYS_MODE_PS2) {
             StopMotion();
             if (!s_fault_reported) {
-                printf("Warning: PS2 analog mode lost. Motion stopped.\r\n");
+                printf("# WARN: PS2 analog mode lost. Motion stopped.\r\n");
                 s_fault_reported = true;
             }
         }
@@ -85,11 +85,11 @@ void App_Teleop_Task(void)
         /* Cross = close, Square = open / 鍙夐�?鍏抽�? 鏂归�?鎵撳�?*/
         if (!s_last_cross_pressed && ps2.cross_pressed) {
             Svc_Gripper_Close();
-            printf("PS2: Gripper Close\r\n");
+            printf("# PS2: Gripper Close\r\n");
         }
         if (!s_last_square_pressed && ps2.square_pressed) {
             Svc_Gripper_Open();
-            printf("PS2: Gripper Open\r\n");
+            printf("# PS2: Gripper Open\r\n");
         }
     }
 

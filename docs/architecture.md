@@ -63,7 +63,7 @@ Drivers/              STM32 HAL 与 CMSIS 代码
 
 - `RobotArm/App/*.c` 只负责启动顺序、任务调度、G-code/PS2 协议适配和服务调用；不包含 STM32 句柄、HAL 或 Device 头文件。
 - `RobotArm/App/adapters/` 是 App 与硬件边界。`app_hardware_adapter.c` 将 LED、UART、关节、限位开关、PS2 与夹爪设备接口转换为 App 所需的操作；`app_isr_adapter.c` 将 TIM6 和 EXTI 中断转换为 MotionService 调用或模式切换事件。
-- `RobotArm/Service/motion/internal/` 保存 `ctrl_motion_engine`、`ctrl_planner`、`ctrl_closed_loop` 和 `ctrl_compensation` 等私有实现。外部模块只能包含 `motion_service.h` 和 `motion_types.h`，不能直接调用内部控制器。
+- `RobotArm/Service/motion/internal/` 保存 `ctrl_motion_engine`、`ctrl_planner` 和 `ctrl_closed_loop` 等私有实现。外部模块只能包含 `motion_service.h` 和 `motion_types.h`，不能直接调用内部控制器。
 
 G-code 语法解析仍位于 App，而解析后的 `GCodeFrame_t` 已放入 `RobotArm/Service/include/command_types.h`。这使 CommandService 不再反向包含 App 头文件：App 负责把文本转换为命令帧，Service 负责解释命令帧对应的机器人动作。
 

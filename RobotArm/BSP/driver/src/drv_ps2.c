@@ -76,12 +76,13 @@ static uint8_t TransferByte(uint8_t tx)
 
 static void SendCommand(const uint8_t *cmd, uint8_t len)
 {
+    uint32_t primask = __get_PRIMASK();
     __disable_irq();
     CS_Write(GPIO_PIN_RESET);
     PS2_Delay();
     for (uint8_t i = 0U; i < len; i++) { TransferByte(cmd[i]); }
     CS_Write(GPIO_PIN_SET);
-    __enable_irq();
+    __set_PRIMASK(primask);
     HAL_Delay(16U);
 }
 
@@ -121,10 +122,9 @@ bool Drv_PS2_ReadData(Ps2Input_t *data)
     uint8_t raw[9] = {0};
     bool    need_reinit = false;
 
-    /* Critical section: prevent TIM6 (50 kHz) from corrupting bit-bang timing.
-       CS-low �?100 碌s �?~5 missed TIM6 ticks. */
-    /* Keep UART and limit interrupts alive; only pause the 50 kHz tick. */
-    /* Keep the complete software-timed PS2 frame atomic. UART RX is DMA-backed. */
+    /* The entire software-timed frame must be atomic.  Save and restore the
+       prior interrupt state instead of unconditionally enabling interrupts. */
+    uint32_t primask = __get_PRIMASK();
     __disable_irq();
 
     CS_Write(GPIO_PIN_RESET);
@@ -137,7 +137,7 @@ bool Drv_PS2_ReadData(Ps2Input_t *data)
     /* Frame header check / 甯уご鏍￠�?*/
     if (raw[2] != PS2_FRAME_HEADER_OK) {
         CS_Write(GPIO_PIN_SET);
-        __enable_irq();
+        __set_PRIMASK(primask);
         s_analog_mode = false;
         return false;
     }
@@ -145,7 +145,7 @@ bool Drv_PS2_ReadData(Ps2Input_t *data)
     /* Mode check + deferred auto reinit / 妯″紡妫€�?+ 寤惰繜鑷姩閲嶆柊鍒濆�?*/
     if (!IsSupportedAnalogMode(raw[1])) {
         CS_Write(GPIO_PIN_SET);
-        __enable_irq();
+        __set_PRIMASK(primask);
         s_analog_mode = false;
         if (raw[1] == PS2_MODE_DIGITAL) {
             s_invalid_mode_count++;
@@ -176,7 +176,7 @@ bool Drv_PS2_ReadData(Ps2Input_t *data)
     raw[8] = TransferByte(0x00U);
 
     CS_Write(GPIO_PIN_SET);
-    __enable_irq();
+    __set_PRIMASK(primask);
 
     data->buttons = (uint16_t)((raw[3] << 8) | raw[4]);
     data->RX = raw[5];

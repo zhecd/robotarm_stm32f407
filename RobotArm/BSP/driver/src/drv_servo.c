@@ -4,6 +4,7 @@
  */
 
 #include "driver/drv_servo.h"
+#include "bsp_driver_config.h"
 #include "robot_math.h"
 
 static ServoDevice_t s_gripper;

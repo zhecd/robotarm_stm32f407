@@ -72,7 +72,7 @@ static void App_EncoderReportTask(void)
                  fabsf(state.motor_angle_deg[2] - last[2]);
     if (first || diff > 1.0f) {
         first = false;
-        printf("ENC M1:%.1f M2:%.1f M3:%.1f\r\n",
+        printf("# ENC M1:%.1f M2:%.1f M3:%.1f\r\n",
                state.motor_angle_deg[0], state.motor_angle_deg[1], state.motor_angle_deg[2]);
         for (int i = 0; i < (int)MOTION_AXIS_COUNT; i++) last[i] = state.motor_angle_deg[i];
     }
@@ -196,13 +196,13 @@ static void App_ModeSwitchTask(void)
     if ((now - last_switch_ms) < 200U) return;
     last_switch_ms = now;
     if (!MotionService_IsIdle() || App_GCodeExec_IsMotionPending()) {
-        printf("Warning: Motors moving, cannot switch mode!\r\n");
+        printf("# WARN: Motors moving, cannot switch mode!\r\n");
         return;
     }
     App_Teleop_ToggleMode();
     SystemMode_t mode = App_Teleop_GetMode();
     AppHardware_SetModeIndicator(mode == SYS_MODE_GCODE, mode == SYS_MODE_PS2);
-    printf("\r\n>>> MODE: [%s] <<<\r\n", mode == SYS_MODE_GCODE ? "G-CODE" : "PS2 TELEOP");
+    printf("# MODE: %s\r\n", mode == SYS_MODE_GCODE ? "G-CODE" : "PS2 TELEOP");
 }
 
 static void App_UpdateModeIndicator(SystemMode_t mode)
@@ -256,7 +256,7 @@ static bool App_FinalizeAfterHoming(void)
     SafetyService_MarkHomed();
     SafetyService_ClearAfterSuccessfulHoming();
     MotionService_SetLimitMonitoring(true);
-    printf("[HomePose] XYZ=%.1f,%.1f,%.1f J=%.1f,%.1f,%.1f\r\n",
+    printf("# [HomePose] XYZ=%.1f,%.1f,%.1f J=%.1f,%.1f,%.1f\r\n",
            g_robot_home_pose.x_mm, g_robot_home_pose.y_mm, g_robot_home_pose.z_mm,
            g_robot_home_pose.joint_deg[0], g_robot_home_pose.joint_deg[1],
            g_robot_home_pose.joint_deg[2]);
@@ -269,10 +269,10 @@ void App_Init(void)
 {
     PlatformTime_Init();
     AppHardware_Init();
-    AppHardware_SendText("System Boot Up OK!\r\n");
+    AppHardware_SendText("# System Boot Up OK!\r\n");
 
     PlatformDelay_Ms(100U);
-    printf("\r\n================================\r\nSystem Boot Up OK! Gcode Mode\r\n================================\r\n");
+    printf("# System Boot Up OK! Gcode Mode\r\n");
 
     AppHardware_ConfigureMotionDrivers();
     SafetyService_Init();
@@ -292,7 +292,7 @@ void App_RunOnce(void)
                 s_boot_state = APP_BOOT_READY;
                 s_mode_switch_requested = false;
                 if (s_homing_is_recovery) printf("M999OK\r\n");
-                else printf("App runtime initialized.\r\n");
+                else printf("# App runtime initialized.\r\n");
             } else {
                 AppHardware_EnableJoints(false);
                 s_boot_state = APP_BOOT_FAILED;
@@ -309,7 +309,7 @@ void App_RunOnce(void)
 
     MotionService_ServiceSafety();
     App_GCodeExec_Service();
-    if (AppHardware_TakeTxOverflow()) AppHardware_SendText("warning: UART TX queue overflow; log dropped\r\n");
+    if (AppHardware_TakeTxOverflow()) AppHardware_SendText("# WARN: UART TX queue overflow; log dropped\r\n");
     if (SafetyService_HasFault()) {
         AppHardware_SetModeIndicator(false, true);
         if (!fault_reported) {

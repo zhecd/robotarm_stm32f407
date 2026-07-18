@@ -93,7 +93,6 @@ add_library(arm_service STATIC
     ${ROBOTARM_SOURCE_ROOT}/Service/motion/internal/ctrl_motion_engine.c
     ${ROBOTARM_SOURCE_ROOT}/Service/motion/internal/ctrl_planner.c
     ${ROBOTARM_SOURCE_ROOT}/Service/motion/internal/ctrl_closed_loop.c
-    ${ROBOTARM_SOURCE_ROOT}/Service/motion/internal/ctrl_compensation.c
 )
 robotarm_target(arm_service)
 target_include_directories(arm_service PUBLIC ${ROBOTARM_SOURCE_ROOT}/Service/include)

@@ -32,7 +32,7 @@ bool Svc_Homing_Start(void)
     Dev_Joint_SetDirection(DEV_JOINT_M2, true);
     Dev_Joint_SetDirection(DEV_JOINT_M3, false);
     s_state = SVC_HOMING_SEEK;
-    printf("[Homing] Starting.\r\n");
+    printf("# [Homing] Starting.\r\n");
     return true;
 }
 
@@ -46,7 +46,7 @@ void Svc_Homing_Step(void)
     if (s_state == SVC_HOMING_SEEK) {
         if (++s_step_count > HOMING_MAX_STEPS) {
             s_state = SVC_HOMING_FAILED;
-            printf("[Homing] timeout M1=%d M2=%d M3=%d\r\n", s_hit[0], s_hit[1], s_hit[2]);
+            printf("# [Homing] timeout M1=%d M2=%d M3=%d\r\n", s_hit[0], s_hit[1], s_hit[2]);
             return;
         }
         for (uint8_t joint = DEV_JOINT_M1; joint < DEV_JOINT_COUNT; joint++) {
@@ -60,7 +60,7 @@ void Svc_Homing_Step(void)
             Dev_Joint_SetDirection(DEV_JOINT_M2, false);
             Dev_Joint_SetDirection(DEV_JOINT_M3, true);
             s_state = SVC_HOMING_BACKOFF;
-            printf("[Homing] All switches hit. Backing off M1=%.0f M2=%.0f M3=%.0f deg...\r\n",
+            printf("# [Homing] All switches hit. Backing off M1=%.0f M2=%.0f M3=%.0f deg...\r\n",
                    HOMING_BACKOFF_M1_DEG, HOMING_BACKOFF_M2_DEG, HOMING_BACKOFF_M3_DEG);
         }
         return;
@@ -76,7 +76,7 @@ void Svc_Homing_Step(void)
     s_backoff_step++;
     if (!any_step) {
         s_state = SVC_HOMING_COMPLETE;
-        printf("[Homing] Complete.\r\n");
+        printf("# [Homing] Complete.\r\n");
     }
 }
 

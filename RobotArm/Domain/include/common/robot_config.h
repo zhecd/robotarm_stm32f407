@@ -244,26 +244,6 @@ extern "C" {
  * Static Compensation / 闈欐€佽ˉ�?
  * 鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺?*/
 
-#ifndef COMP_DEADBAND_DEG
-#define COMP_DEADBAND_DEG       2.0f         /* Compensation deadband (deg) / 琛ュ伩姝诲尯 */
-#endif
-
-#ifndef COMP_SPEED_DIV
-#define COMP_SPEED_DIV          100          /* Compensation speed divisor / 琛ュ伩閫熷害闄ゆ�?*/
-#endif
-
-#ifndef COMP_MIN_TICKS
-#define COMP_MIN_TICKS          100U         /* Min compensation ticks / 鏈€灏忚ˉ鍋胯妭鎷?*/
-#endif
-
-#ifndef COMP_WATCHDOG_ROUNDS
-#define COMP_WATCHDOG_ROUNDS    30           /* Max compensation iterations / 鏈€澶цˉ鍋胯凯浠ｆ鏁?*/
-#endif
-
-#ifndef COMP_WAIT_TIMEOUT_MS
-#define COMP_WAIT_TIMEOUT_MS    3000U        /* Maximum wait for one compensation frame. */
-#endif
-
 /* 鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺?
  * Homing / 鍥為�?
  * 鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺?*/
@@ -332,62 +312,10 @@ extern "C" {
  * Gripper Servo / 澶圭埅鑸垫満
  * 鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺?*/
 
-#ifndef GRIPPER_SERVO_MIN_US
-#define GRIPPER_SERVO_MIN_US    500.0f       /* Min pulse width (us) / 鏈€灏忚剦�?*/
-#endif
-
-#ifndef GRIPPER_SERVO_MAX_US
-#define GRIPPER_SERVO_MAX_US    2500.0f      /* Max pulse width (us) / 鏈€澶ц剦�?*/
-#endif
-
-#ifndef GRIPPER_ANGLE_OPEN
-#define GRIPPER_ANGLE_OPEN      72.0f        /* Close angle (deg) / 鍚堢埅瑙掑害 */
-#endif
-
-#ifndef GRIPPER_ANGLE_CLOSE
-#define GRIPPER_ANGLE_CLOSE     100.0f       /* Open angle (deg) / 寮犲紑瑙掑害 */
-#endif
-
-#ifndef GRIPPER_HOLD_MS
-#define GRIPPER_HOLD_MS         600U         /* PWM hold time before auto-off (ms) / PWM淇濇寔鏃堕棿鍚庤嚜鍔ㄥ叧�?*/
-#endif
-
 
 /* 鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺?
  * TMC2209 Driver / TMC2209 椹卞�?
  * 鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺?*/
-
-#ifndef TMC_IRUN_HIGH
-#define TMC_IRUN_HIGH           24U          /* High run current / 楂樿繍琛岀數娴?*/
-#endif
-
-#ifndef TMC_IRUN_MED
-#define TMC_IRUN_MED            16U          /* Medium run current / 涓繍琛岀數娴?*/
-#endif
-
-#ifndef TMC_IRUN_LOW
-#define TMC_IRUN_LOW            8U           /* Low run current / 浣庤繍琛岀數娴?*/
-#endif
-
-#ifndef TMC_IHOLD_STRONG
-#define TMC_IHOLD_STRONG        12U          /* Strong hold current / 寮轰繚鎸佺數�?*/
-#endif
-
-#ifndef TMC_IHOLD_COOL
-#define TMC_IHOLD_COOL          4U           /* Low hold current / 浣庝繚鎸佺數�?*/
-#endif
-
-#ifndef TMC_DEFAULT_MICROSTEPS
-#define TMC_DEFAULT_MICROSTEPS  16U          /* Default microstepping / 榛樿缁嗗垎 */
-#endif
-
-#ifndef TMC_DEFAULT_IRUN
-#define TMC_DEFAULT_IRUN        28U          /* Default run current / 榛樿杩愯鐢垫�?*/
-#endif
-
-#ifndef TMC_DEFAULT_IHOLD
-#define TMC_DEFAULT_IHOLD       15U          /* Default hold current / 榛樿淇濇寔鐢垫�?*/
-#endif
 
 /* 鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺?
  * System / Timing / 绯荤粺涓庡畾�?
@@ -395,18 +323,6 @@ extern "C" {
 
 #ifndef RING_BUFFER_SIZE
 #define RING_BUFFER_SIZE        64           /* Motion frame ring buffer size / 杩愬姩甯х幆褰㈢紦鍐插尯澶у�?*/
-#endif
-
-#ifndef UART1_RX_BUF_SIZE
-#define UART1_RX_BUF_SIZE       256U         /* UART1 RX buffer size (bytes) / 涓插彛鎺ユ敹缂撳啿鍖哄ぇ�?*/
-#endif
-
-#ifndef UART1_TX_BUF_SIZE
-#define UART1_TX_BUF_SIZE       1024U        /* UART1 TX DMA queue (bytes). */
-#endif
-
-#ifndef UART1_LINE_TIMEOUT_MS
-#define UART1_LINE_TIMEOUT_MS   500U         /* Incomplete-line discard timeout (ms). */
 #endif
 
 
