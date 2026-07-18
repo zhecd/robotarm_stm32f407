@@ -7,15 +7,15 @@ enable_testing()
 add_executable(robotarm_logic_tests
     logic_tests.c
     ../RobotArm/App/app_gcode_parser.c
-    ../RobotArm/Domain/kinematics/kinematics.c
-    ../RobotArm/Domain/common/robot_math.c
+    ../RobotArm/Algorithm/kinematics/kinematics.c
+    ../RobotArm/Algorithm/common/robot_math.c
 )
 
 target_include_directories(robotarm_logic_tests PRIVATE
     ../RobotArm/App/include
     ../RobotArm/Service/include
-    ../RobotArm/Domain/include
-    ../RobotArm/Domain/include/common
+    ../RobotArm/Algorithm/include
+    ../RobotArm/Algorithm/include/common
 )
 
 if(MINGW OR UNIX)

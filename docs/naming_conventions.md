@@ -2,7 +2,7 @@
 
 ## 目录与文件
 
-- 顶级目录使用首字母大写的架构名：`App`、`Service`、`Domain`、`Device`、`BSP`、`Platform`；具体芯片与协议驱动放在 `BSP/driver/`。
+- 顶级目录使用首字母大写的架构名：`App`、`Service`、`Algorithm`、`Device`、`BSP`、`Platform`；具体芯片与协议驱动放在 `BSP/driver/`。
 - C 文件与头文件使用小写蛇形命名，例如 `motion_service.c`、`joint_device.h`。
 - App 任务使用 `app_<topic>_task.c`；硬件适配使用 `app_<interface>_adapter.c`。
 - 服务接口使用 `<Name>Service_<Verb>()`，例如 `MotionService_SubmitMove()`。

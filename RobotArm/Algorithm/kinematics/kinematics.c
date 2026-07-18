@@ -3,7 +3,7 @@
  * @brief   Inverse kinematics implementation for parallel-gripper SCARA arm. / 楠炲疇顢戞径鍦焻 SCARA 閺堢儤顫懛鍌炩偓鍡氱箥閸斻劌顒熺€圭偟骞囬妴? * @ingroup control
  */
 
-#include "domain/kinematics.h"
+#include "algorithm/kinematics.h"
 #include "robot_math.h"
 #include <stdbool.h>
 

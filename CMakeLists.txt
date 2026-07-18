@@ -59,7 +59,7 @@ target_include_directories(arm_bsp PUBLIC
     ${ROBOTARM_SOURCE_ROOT}/BSP/include
     ${ROBOTARM_SOURCE_ROOT}/BSP/driver/include)
 target_include_directories(arm_bsp PRIVATE
-    Core/Inc ${ROBOTARM_SOURCE_ROOT}/Domain/include ${ROBOTARM_SOURCE_ROOT}/Domain/include/common ${ROBOTARM_HAL_INCLUDE_DIRS})
+    Core/Inc ${ROBOTARM_SOURCE_ROOT}/Algorithm/include ${ROBOTARM_SOURCE_ROOT}/Algorithm/include/common ${ROBOTARM_HAL_INCLUDE_DIRS})
 
 add_library(arm_device STATIC
     ${ROBOTARM_SOURCE_ROOT}/Device/src/dev_gripper.c
@@ -70,18 +70,18 @@ add_library(arm_device STATIC
 robotarm_target(arm_device)
 target_include_directories(arm_device PUBLIC ${ROBOTARM_SOURCE_ROOT}/Device/include)
 target_include_directories(arm_device PRIVATE
-    Core/Inc ${ROBOTARM_SOURCE_ROOT}/BSP/include ${ROBOTARM_SOURCE_ROOT}/Domain/include ${ROBOTARM_SOURCE_ROOT}/Domain/include/common ${ROBOTARM_HAL_INCLUDE_DIRS})
+    Core/Inc ${ROBOTARM_SOURCE_ROOT}/BSP/include ${ROBOTARM_SOURCE_ROOT}/Algorithm/include ${ROBOTARM_SOURCE_ROOT}/Algorithm/include/common ${ROBOTARM_HAL_INCLUDE_DIRS})
 target_link_libraries(arm_device PUBLIC arm_bsp)
 
-# Domain contains pure robot mathematics and kinematics.  It is kept free of
-# HAL, BSP, Device, Service and App dependencies so it remains host-testable.
-add_library(arm_domain STATIC
-    ${ROBOTARM_SOURCE_ROOT}/Domain/common/robot_math.c
-    ${ROBOTARM_SOURCE_ROOT}/Domain/common/robot_home_pose.c
-    ${ROBOTARM_SOURCE_ROOT}/Domain/kinematics/kinematics.c
+# Algorithm contains pure robot mathematics and kinematics.  It is kept free
+# of HAL, BSP, Device, Service and App dependencies so it remains host-testable.
+add_library(arm_algorithm STATIC
+    ${ROBOTARM_SOURCE_ROOT}/Algorithm/common/robot_math.c
+    ${ROBOTARM_SOURCE_ROOT}/Algorithm/common/robot_home_pose.c
+    ${ROBOTARM_SOURCE_ROOT}/Algorithm/kinematics/kinematics.c
 )
-robotarm_target(arm_domain)
-target_include_directories(arm_domain PUBLIC ${ROBOTARM_SOURCE_ROOT}/Domain/include ${ROBOTARM_SOURCE_ROOT}/Domain/include/common)
+robotarm_target(arm_algorithm)
+target_include_directories(arm_algorithm PUBLIC ${ROBOTARM_SOURCE_ROOT}/Algorithm/include ${ROBOTARM_SOURCE_ROOT}/Algorithm/include/common)
 
 add_library(arm_service STATIC
     ${ROBOTARM_SOURCE_ROOT}/Service/command/command_service.c
@@ -100,10 +100,10 @@ target_include_directories(arm_service PRIVATE
     Core/Inc
     ${ROBOTARM_SOURCE_ROOT}/Service/motion/internal
     ${ROBOTARM_SOURCE_ROOT}/BSP/include ${ROBOTARM_SOURCE_ROOT}/Device/include
-    ${ROBOTARM_SOURCE_ROOT}/Domain/include ${ROBOTARM_SOURCE_ROOT}/Domain/include/common
+    ${ROBOTARM_SOURCE_ROOT}/Algorithm/include ${ROBOTARM_SOURCE_ROOT}/Algorithm/include/common
     ${ROBOTARM_SOURCE_ROOT}/Platform ${ROBOTARM_SOURCE_ROOT}/Platform/compat
     ${ROBOTARM_HAL_INCLUDE_DIRS})
-target_link_libraries(arm_service PRIVATE arm_domain arm_device arm_platform)
+target_link_libraries(arm_service PRIVATE arm_algorithm arm_device arm_platform)
 
 add_library(arm_app STATIC
     ${ROBOTARM_SOURCE_ROOT}/App/app_runtime.c
@@ -117,9 +117,9 @@ target_include_directories(arm_app PUBLIC ${ROBOTARM_SOURCE_ROOT}/App/include)
 target_include_directories(arm_app PRIVATE
     ${ROBOTARM_SOURCE_ROOT}/App/adapters
     ${ROBOTARM_SOURCE_ROOT}/Service/include
-    ${ROBOTARM_SOURCE_ROOT}/Domain/include ${ROBOTARM_SOURCE_ROOT}/Domain/include/common
+    ${ROBOTARM_SOURCE_ROOT}/Algorithm/include ${ROBOTARM_SOURCE_ROOT}/Algorithm/include/common
     ${ROBOTARM_SOURCE_ROOT}/Platform ${ROBOTARM_SOURCE_ROOT}/Platform/compat)
-target_link_libraries(arm_app PRIVATE arm_service arm_platform arm_domain)
+target_link_libraries(arm_app PRIVATE arm_service arm_platform arm_algorithm)
 
 # Adapters are the only App code allowed to know STM32 handles, BSP or Device.
 add_library(arm_app_adapters STATIC
@@ -130,7 +130,7 @@ robotarm_target(arm_app_adapters)
 target_include_directories(arm_app_adapters PRIVATE
     Core/Inc ${ROBOTARM_SOURCE_ROOT}/App/include ${ROBOTARM_SOURCE_ROOT}/App/adapters
     ${ROBOTARM_SOURCE_ROOT}/Service/include ${ROBOTARM_SOURCE_ROOT}/BSP/include ${ROBOTARM_SOURCE_ROOT}/Device/include
-    ${ROBOTARM_SOURCE_ROOT}/Domain/include ${ROBOTARM_SOURCE_ROOT}/Domain/include/common
+    ${ROBOTARM_SOURCE_ROOT}/Algorithm/include ${ROBOTARM_SOURCE_ROOT}/Algorithm/include/common
     ${ROBOTARM_HAL_INCLUDE_DIRS})
 target_link_libraries(arm_app_adapters PRIVATE arm_service arm_device arm_bsp)
 
@@ -140,7 +140,7 @@ target_link_libraries(${CMAKE_PROJECT_NAME} PRIVATE
     arm_app
     arm_app_adapters
     arm_service
-    arm_domain
+    arm_algorithm
     arm_device
     arm_bsp
     arm_platform

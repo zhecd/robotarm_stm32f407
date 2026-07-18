@@ -7,7 +7,7 @@
 
 #include "main.h"
 #include "robot_math.h"
-#include "domain/kinematics.h"
+#include "algorithm/kinematics.h"
 #include "ctrl_motion_engine.h"
 
 #include <math.h>

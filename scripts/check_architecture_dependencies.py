@@ -9,7 +9,7 @@ import sys
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 ROBOTARM_ROOT = ROOT / "RobotArm"
 RULES = {
-    ROBOTARM_ROOT / "Domain": ("stm32f4xx", "HAL_", "CMSIS", "FreeRTOS", "Platform/", "BSP/", "Device/", "Service/", "App/"),
+    ROBOTARM_ROOT / "Algorithm": ("stm32f4xx", "HAL_", "CMSIS", "FreeRTOS", "Platform/", "BSP/", "Device/", "Service/", "App/"),
     ROBOTARM_ROOT / "Service": ("HAL_", "GPIO_TypeDef", "TIM_HandleTypeDef", "UART_HandleTypeDef", "__disable_irq"),
     ROBOTARM_ROOT / "App": ("stm32f4xx", "HAL_", "GPIO_TypeDef", "TIM_HandleTypeDef",
                     "UART_HandleTypeDef", "bsp/", "device/", "driver/"),

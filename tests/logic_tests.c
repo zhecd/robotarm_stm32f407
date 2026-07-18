@@ -4,7 +4,7 @@
 #include <stdio.h>
 
 #include "app/app_gcode_parser.h"
-#include "domain/kinematics.h"
+#include "algorithm/kinematics.h"
 #include "error_code.h"
 #include "robot_config.h"
 #include "robot_math.h"
