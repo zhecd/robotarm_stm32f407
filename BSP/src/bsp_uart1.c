@@ -5,20 +5,20 @@
  */
 
 #include "bsp/bsp_uart1.h"
-#include "robot_config.h"
+#include "bsp/bsp_uart1_config.h"
 #include <stdio.h>
 #include <string.h>
 
 extern UART_HandleTypeDef huart1;
 
 typedef struct {
-    uint8_t          buffer[UART1_RX_BUF_SIZE];
+    uint8_t          buffer[BSP_UART1_RX_BUF_SIZE];
     volatile uint16_t head;
     volatile uint16_t tail;
 } RingBuf_t;
 
 typedef struct {
-    uint8_t          buffer[UART1_TX_BUF_SIZE];
+    uint8_t          buffer[BSP_UART1_TX_BUF_SIZE];
     volatile uint16_t head;
     volatile uint16_t tail;
 } TxRingBuf_t;
@@ -36,7 +36,7 @@ static volatile bool s_tx_overflow = false;
 
 static void StartRxDMA(void)
 {
-    (void)HAL_UART_Receive_DMA(&huart1, s_rx.buffer, UART1_RX_BUF_SIZE);
+    (void)HAL_UART_Receive_DMA(&huart1, s_rx.buffer, BSP_UART1_RX_BUF_SIZE);
 }
 
 static void StartTxIT(void)
@@ -53,7 +53,7 @@ static void StartTxIT(void)
 
     data = &s_tx.buffer[s_tx.tail];
     length = (s_tx.head > s_tx.tail) ? (uint16_t)(s_tx.head - s_tx.tail)
-                                      : (uint16_t)(UART1_TX_BUF_SIZE - s_tx.tail);
+                                      : (uint16_t)(BSP_UART1_TX_BUF_SIZE - s_tx.tail);
     s_tx_dma_active = true;
     s_tx_dma_len = length;
     __set_PRIMASK(primask);
@@ -75,7 +75,7 @@ static void QueueTx(const uint8_t *data, size_t length)
     uint32_t primask = __get_PRIMASK();
     __disable_irq();
     for (size_t i = 0U; i < length; i++) {
-        uint16_t next = (uint16_t)((s_tx.head + 1U) % UART1_TX_BUF_SIZE);
+        uint16_t next = (uint16_t)((s_tx.head + 1U) % BSP_UART1_TX_BUF_SIZE);
         if (next == s_tx.tail) {
             s_tx_overflow = true;
             break;
@@ -90,16 +90,16 @@ static void QueueTx(const uint8_t *data, size_t length)
 static void RefreshRxHead(void)
 {
     uint16_t previous_pos = s_rx.head;
-    uint16_t dma_pos = (uint16_t)(UART1_RX_BUF_SIZE -
+    uint16_t dma_pos = (uint16_t)(BSP_UART1_RX_BUF_SIZE -
                                   __HAL_DMA_GET_COUNTER(huart1.hdmarx));
-    if (dma_pos >= UART1_RX_BUF_SIZE)
+    if (dma_pos >= BSP_UART1_RX_BUF_SIZE)
         dma_pos = 0U;
 
     uint32_t wraps = s_dma_wrap_count;
-    int32_t produced = (int32_t)((wraps - s_observed_wrap_count) * UART1_RX_BUF_SIZE)
+    int32_t produced = (int32_t)((wraps - s_observed_wrap_count) * BSP_UART1_RX_BUF_SIZE)
                      + (int32_t)dma_pos - (int32_t)previous_pos;
 
-    if (produced >= (int32_t)UART1_RX_BUF_SIZE) {
+    if (produced >= (int32_t)BSP_UART1_RX_BUF_SIZE) {
         s_rx.tail = dma_pos;
         s_rx_overflow = true;
         s_line_timeout = false;
@@ -140,7 +140,7 @@ bool BSP_UART1_ReadLine(char *line, uint16_t max_len)
        parsed as a spurious empty command on the next call. */
     while (s_rx.tail != s_rx.head &&
            (s_rx.buffer[s_rx.tail] == '\r' || s_rx.buffer[s_rx.tail] == '\n')) {
-        s_rx.tail = (s_rx.tail + 1U) % UART1_RX_BUF_SIZE;
+        s_rx.tail = (s_rx.tail + 1U) % BSP_UART1_RX_BUF_SIZE;
     }
     if (s_rx.head == s_rx.tail)
         return false;
@@ -152,12 +152,12 @@ bool BSP_UART1_ReadLine(char *line, uint16_t max_len)
     while (scan_idx != s_rx.head) {
         uint8_t ch = s_rx.buffer[scan_idx];
         if (ch == '\n' || ch == '\r') { found_end = true; break; }
-        scan_idx = (scan_idx + 1U) % UART1_RX_BUF_SIZE;
+        scan_idx = (scan_idx + 1U) % BSP_UART1_RX_BUF_SIZE;
     }
 
     if (!found_end) {
         /* Strict protocol: only CR/LF-terminated lines are commands. */
-        if ((HAL_GetTick() - s_last_rx_tick) > UART1_LINE_TIMEOUT_MS) {
+        if ((HAL_GetTick() - s_last_rx_tick) > BSP_UART1_LINE_TIMEOUT_MS) {
             s_rx.tail = s_rx.head;
             s_line_timeout = true;
         }
@@ -167,13 +167,13 @@ bool BSP_UART1_ReadLine(char *line, uint16_t max_len)
     uint16_t out_idx = 0U;
     while (read_idx != scan_idx && out_idx < (uint16_t)(max_len - 1U)) {
         line[out_idx++] = (char)s_rx.buffer[read_idx];
-        read_idx = (read_idx + 1U) % UART1_RX_BUF_SIZE;
+        read_idx = (read_idx + 1U) % BSP_UART1_RX_BUF_SIZE;
     }
     line[out_idx] = '\0';
 
     while (read_idx != s_rx.head &&
            (s_rx.buffer[read_idx] == '\n' || s_rx.buffer[read_idx] == '\r')) {
-        read_idx = (read_idx + 1U) % UART1_RX_BUF_SIZE;
+        read_idx = (read_idx + 1U) % BSP_UART1_RX_BUF_SIZE;
     }
 
     s_rx.tail = read_idx;
@@ -238,7 +238,7 @@ void HAL_UART_TxCpltCallback(UART_HandleTypeDef *huart)
 
     uint32_t primask = __get_PRIMASK();
     __disable_irq();
-    s_tx.tail = (uint16_t)((s_tx.tail + s_tx_dma_len) % UART1_TX_BUF_SIZE);
+    s_tx.tail = (uint16_t)((s_tx.tail + s_tx_dma_len) % BSP_UART1_TX_BUF_SIZE);
     s_tx_dma_len = 0U;
     s_tx_dma_active = false;
     __set_PRIMASK(primask);

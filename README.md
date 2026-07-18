@@ -58,7 +58,7 @@ M5\r\n
 ## 安全与调参
 
 - 初次使用或调整机械结构后，必须验证回零方向、Home Pose 和软件关节限位。
-- `Core/Inc/common/robot_config.h` 集中保存连杆长度、减速比、速度上限、回零退回角度和限位参数。
+- `Domain/include/common/robot_config.h` 集中保存连杆长度、减速比、速度上限、回零退回角度和限位参数。
 - 当前 `GCODE_MAX_FEEDRATE` 与 `MOTOR_MAX_STEP_RATE_HZ` 是保守起点，应结合实际负载和供电进行验证。
 - 安全故障锁定后，运动指令将被拒绝；排除原因后使用 `M999` 重新回零与校准。
 

@@ -10,6 +10,8 @@ ROOT = pathlib.Path(__file__).resolve().parents[1]
 RULES = {
     ROOT / "Domain": ("stm32f4xx", "HAL_", "CMSIS", "FreeRTOS", "Platform/", "BSP/", "Device/", "Service/", "App/"),
     ROOT / "Service": ("HAL_", "GPIO_TypeDef", "TIM_HandleTypeDef", "UART_HandleTypeDef", "__disable_irq"),
+    ROOT / "App": ("stm32f4xx", "HAL_", "GPIO_TypeDef", "TIM_HandleTypeDef",
+                    "UART_HandleTypeDef", "bsp/", "device/", "driver/"),
 }
 
 
@@ -25,6 +27,10 @@ def main() -> int:
         if not directory.exists():
             continue
         for path in directory.rglob("*.[ch]"):
+            # App/adapters is the explicit boundary that translates CubeMX,
+            # BSP and Device details into application-facing operations.
+            if directory == ROOT / "App" and "adapters" in path.relative_to(directory).parts:
+                continue
             text = strip_comments(path.read_text(encoding="utf-8", errors="ignore"))
             for token in forbidden:
                 if token in text:

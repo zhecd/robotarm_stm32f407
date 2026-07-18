@@ -19,12 +19,14 @@
 
 #include <stdint.h>
 #include <stdbool.h>
+#include "motion_types.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
 /** A single motion segment: delta steps for 3 axes + duration in timer ticks / 鍗曟杩愬姩: 涓夎酱澧為噺姝ユ�?+ 瀹氭椂鍣ㄨ妭鎷嶆椂闀?*/
+#if 0 /* Legacy declarations retained below for historical comments only. */
 typedef struct {
     int32_t  delta_m1;          /* M1 axis step delta / M1 杞存鏁板�?*/
     int32_t  delta_m2;          /* M2 axis step delta / M2 杞存鏁板�?*/
@@ -39,6 +41,7 @@ typedef enum {
     MOTION_FAULT_SOFT_LIMIT,
     MOTION_FAULT_QUEUE_TIMEOUT
 } MotionFaultReason_t;
+#endif
 
 void Ctrl_MotionEngine_Init(void);
 

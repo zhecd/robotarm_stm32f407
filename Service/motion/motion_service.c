@@ -1,6 +1,8 @@
 #include "motion_service.h"
 
 #include "safety_service.h"
+#include "ctrl_motion_engine.h"
+#include "ctrl_closed_loop.h"
 
 void MotionService_Init(void)
 {
@@ -76,4 +78,49 @@ void MotionService_NotifyLimitSwitch(uint16_t gpio_pin)
 MotionFaultReason_t MotionService_GetFaultReason(void)
 {
     return Ctrl_MotionEngine_GetFaultReason();
+}
+
+bool MotionService_HasFault(void)
+{
+    return Ctrl_MotionEngine_HasFault();
+}
+
+void MotionService_ClearFault(void)
+{
+    Ctrl_MotionEngine_ClearFault();
+}
+
+void MotionService_InitClosedLoop(void)
+{
+    Ctrl_ClosedLoop_Init();
+}
+
+void MotionService_SyncClosedLoopTarget(void)
+{
+    Ctrl_ClosedLoop_SyncTarget();
+}
+
+void MotionService_UpdateClosedLoop(void)
+{
+    Ctrl_ClosedLoop_Update();
+}
+
+bool MotionService_IsClosedLoopAxisEnabled(int axis)
+{
+    return Ctrl_ClosedLoop_IsAxisEnabled(axis);
+}
+
+void MotionService_SetClosedLoopAxisEnabled(int axis, bool enabled)
+{
+    Ctrl_ClosedLoop_SetAxisEnabled(axis, enabled);
+}
+
+bool MotionService_GetClosedLoopAxisAngle(int axis, float *out_deg)
+{
+    return Ctrl_ClosedLoop_GetAxisAngle(axis, out_deg);
+}
+
+ErrorCode_t MotionService_SetClosedLoopAxisZero(int axis)
+{
+    return Ctrl_ClosedLoop_SetAxisZero(axis);
 }

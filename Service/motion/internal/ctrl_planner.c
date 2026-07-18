@@ -3,12 +3,12 @@
  * @brief Incremental Cartesian path validation and motion-frame generation.
  */
 
-#include "service/control/ctrl_planner.h"
+#include "ctrl_planner.h"
 
 #include "main.h"
 #include "robot_math.h"
 #include "domain/kinematics.h"
-#include "service/control/ctrl_motion_engine.h"
+#include "ctrl_motion_engine.h"
 
 #include <math.h>
 

@@ -9,9 +9,9 @@
  *   encoders toward it.
  *   theory_steps 浠呯疮绉鍒掑櫒鎺ㄩ€佺殑�?涓嶅惈琛ュ伩�?, 鍥犳濮嬬粓浠ｈ�?鎸囦�?浣嶇疆銆? *   鏈嚱鏁板皢 theory_steps 鐨勫揩鐓т綔涓哄浐瀹氱洰鏍? 椹卞姩缂栫爜鍣ㄨ秼杩戣鐩爣銆? */
 
-#include "service/control/ctrl_compensation.h"
-#include "service/control/ctrl_motion_engine.h"
-#include "service/control/ctrl_closed_loop.h"
+#include "ctrl_compensation.h"
+#include "ctrl_motion_engine.h"
+#include "ctrl_closed_loop.h"
 #include "os/os_adapter.h"
 #include "robot_math.h"
 #include <math.h>

@@ -3,7 +3,7 @@
 #include "platform_critical.h"
 #include "robot_config.h"
 #include "safety_service.h"
-#include "service/control/ctrl_planner.h"
+#include "ctrl_planner.h"
 #include "service/svc_gripper.h"
 
 #include <math.h>

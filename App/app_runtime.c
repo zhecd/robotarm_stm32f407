@@ -1,23 +1,14 @@
 #include "app_init.h"
-#include "app_isr.h"
 
-#include "main.h"
-#include "tim.h"
-#include "usart.h"
-
-#include "bsp/bsp_led.h"
-#include "bsp/bsp_uart1.h"
-#include "device/dev_input.h"
-#include "device/dev_joint.h"
-#include "device/dev_limit_switch.h"
-#include "device/dev_gripper.h"
+#include "app_hardware_adapter.h"
+#include "app/app_runtime_events.h"
 #include "service/svc_gripper.h"
 #include "service/svc_homing.h"
 #include "motion_service.h"
+#include "platform_delay.h"
 #include "platform_time.h"
 #include "safety_service.h"
 #include "state_service.h"
-#include "service/control/ctrl_closed_loop.h"
 #include "app/app_calibration.h"
 #include "app/app_gcode_exec.h"
 #include "app/app_gcode_parser.h"
@@ -28,9 +19,6 @@
 #include <math.h>
 #include <stdbool.h>
 #include <stdio.h>
-
-#define MODE_LED_GCODE LED_0
-#define MODE_LED_PS2   LED_1
 
 static volatile bool s_mode_switch_requested = false;
 static bool s_wait_for_motion = false;
@@ -47,17 +35,22 @@ static bool s_homing_is_recovery = false;
 
 static void App_StartHoming(bool recovery);
 
+void AppRuntime_RequestModeSwitch(void)
+{
+    s_mode_switch_requested = true;
+}
+
 static void App_EncoderReadTask(void)
 {
     static uint32_t last_tick = 0U;
-    uint32_t now = HAL_GetTick();
+    uint32_t now = PlatformTime_NowMs();
     if ((now - last_tick) < 20U) return;
     last_tick = now;
 
-    for (int i = 0; i < CL_AXIS_COUNT; i++) {
-        if (Ctrl_ClosedLoop_IsAxisEnabled(i)) {
+    for (int i = 0; i < (int)MOTION_AXIS_COUNT; i++) {
+        if (MotionService_IsClosedLoopAxisEnabled(i)) {
             float angle;
-            Ctrl_ClosedLoop_GetAxisAngle(i, &angle);
+            MotionService_GetClosedLoopAxisAngle(i, &angle);
         }
     }
 }
@@ -65,10 +58,10 @@ static void App_EncoderReadTask(void)
 static void App_EncoderReportTask(void)
 {
     static uint32_t last_tick = 0U;
-    static float last[CL_AXIS_COUNT];
+    static float last[MOTION_AXIS_COUNT];
     static bool first = true;
     StateServiceStatus_t state;
-    uint32_t now = HAL_GetTick();
+    uint32_t now = PlatformTime_NowMs();
 
     if ((now - last_tick) < 1000U) return;
     last_tick = now;
@@ -81,17 +74,17 @@ static void App_EncoderReportTask(void)
         first = false;
         printf("ENC M1:%.1f M2:%.1f M3:%.1f\r\n",
                state.motor_angle_deg[0], state.motor_angle_deg[1], state.motor_angle_deg[2]);
-        for (int i = 0; i < CL_AXIS_COUNT; i++) last[i] = state.motor_angle_deg[i];
+        for (int i = 0; i < (int)MOTION_AXIS_COUNT; i++) last[i] = state.motor_angle_deg[i];
     }
 }
 
 static void App_ClosedLoopTask(void)
 {
     static uint32_t last_tick = 0U;
-    uint32_t now = HAL_GetTick();
+    uint32_t now = PlatformTime_NowMs();
     if ((now - last_tick) < 20U) return;
     last_tick = now;
-    Ctrl_ClosedLoop_Update();
+    MotionService_UpdateClosedLoop();
 }
 
 static void App_ReportM114(void)
@@ -109,9 +102,9 @@ static void App_ReportM114(void)
 static void App_ReportM119(void)
 {
     printf("M119 M1:%s M2:%s M3:%s\r\n",
-           Dev_LimitSwitch_IsTriggered(DEV_JOINT_M1) ? "TRIGGERED" : "OPEN",
-           Dev_LimitSwitch_IsTriggered(DEV_JOINT_M2) ? "TRIGGERED" : "OPEN",
-           Dev_LimitSwitch_IsTriggered(DEV_JOINT_M3) ? "TRIGGERED" : "OPEN");
+           AppHardware_IsLimitTriggered(0U) ? "TRIGGERED" : "OPEN",
+           AppHardware_IsLimitTriggered(1U) ? "TRIGGERED" : "OPEN",
+           AppHardware_IsLimitTriggered(2U) ? "TRIGGERED" : "OPEN");
 }
 
 static void App_GCodeTask(void)
@@ -128,7 +121,7 @@ static void App_GCodeTask(void)
             printf("error: command rejected (%d)\r\n", (int)result);
             return;
         }
-        Ctrl_ClosedLoop_SyncTarget();
+        MotionService_SyncClosedLoopTarget();
         printf("ok\r\n");
         return;
     }
@@ -143,9 +136,9 @@ static void App_GCodeTask(void)
         return;
     }
 
-    if (BSP_UART1_TakeLineTimeout()) printf("error: incomplete command; CRLF required\r\n");
-    if (BSP_UART1_TakeRxOverflow()) printf("error: UART RX overflow; command discarded\r\n");
-    if (!BSP_UART1_ReadLine(line, sizeof(line))) return;
+    if (AppHardware_TakeLineTimeout()) printf("error: incomplete command; CRLF required\r\n");
+    if (AppHardware_TakeRxOverflow()) printf("error: UART RX overflow; command discarded\r\n");
+    if (!AppHardware_ReadLine(line, sizeof(line))) return;
 
     bool has_printable = false;
     for (const char *p = line; *p != '\0'; p++) {
@@ -185,7 +178,7 @@ static void App_GCodeTask(void)
         printf("error: command rejected (%d)\r\n", (int)status);
         return;
     }
-    if (frame.type == GCMD_G0 || frame.type == GCMD_G1) Ctrl_ClosedLoop_SyncTarget();
+    if (frame.type == GCMD_G0 || frame.type == GCMD_G1) MotionService_SyncClosedLoopTarget();
     switch (frame.type) {
     case GCMD_M3: printf("M3OK\r\n"); break;
     case GCMD_M5: printf("M5OK\r\n"); break;
@@ -199,7 +192,7 @@ static void App_ModeSwitchTask(void)
     if (!s_mode_switch_requested) return;
     s_mode_switch_requested = false;
 
-    uint32_t now = HAL_GetTick();
+    uint32_t now = PlatformTime_NowMs();
     if ((now - last_switch_ms) < 200U) return;
     last_switch_ms = now;
     if (!MotionService_IsIdle() || App_GCodeExec_IsMotionPending()) {
@@ -208,8 +201,7 @@ static void App_ModeSwitchTask(void)
     }
     App_Teleop_ToggleMode();
     SystemMode_t mode = App_Teleop_GetMode();
-    BSP_LED_SetState(MODE_LED_GCODE, mode == SYS_MODE_GCODE ? LED_ON : LED_OFF);
-    BSP_LED_SetState(MODE_LED_PS2, mode == SYS_MODE_PS2 ? LED_ON : LED_OFF);
+    AppHardware_SetModeIndicator(mode == SYS_MODE_GCODE, mode == SYS_MODE_PS2);
     printf("\r\n>>> MODE: [%s] <<<\r\n", mode == SYS_MODE_GCODE ? "G-CODE" : "PS2 TELEOP");
 }
 
@@ -218,8 +210,7 @@ static void App_UpdateModeIndicator(SystemMode_t mode)
     static SystemMode_t last_mode = (SystemMode_t)-1;
     if (mode == last_mode) return;
     last_mode = mode;
-    BSP_LED_SetState(MODE_LED_GCODE, mode == SYS_MODE_GCODE ? LED_ON : LED_OFF);
-    BSP_LED_SetState(MODE_LED_PS2, mode == SYS_MODE_PS2 ? LED_ON : LED_OFF);
+    AppHardware_SetModeIndicator(mode == SYS_MODE_GCODE, mode == SYS_MODE_PS2);
 }
 
 static const char *App_MotionFaultText(MotionFaultReason_t reason)
@@ -238,7 +229,7 @@ static void App_StartHoming(bool recovery)
     s_wait_for_motion = false;
     s_wait_for_plan_start = false;
     MotionService_SetLimitMonitoring(false);
-    Dev_Joint_EnableAll(true);
+    AppHardware_EnableJoints(true);
     Svc_Homing_Start();
     s_homing_is_recovery = recovery;
     s_boot_state = APP_BOOT_HOMING;
@@ -255,7 +246,7 @@ static bool App_FinalizeAfterHoming(void)
     }
 
     App_Teleop_Init();
-    Ctrl_ClosedLoop_Init();
+    MotionService_InitClosedLoop();
     StateService_Init();
     if (!App_Calibration_Execute()) {
         printf("error: encoder calibration failed; motion disabled\r\n");
@@ -269,27 +260,21 @@ static bool App_FinalizeAfterHoming(void)
            g_robot_home_pose.x_mm, g_robot_home_pose.y_mm, g_robot_home_pose.z_mm,
            g_robot_home_pose.joint_deg[0], g_robot_home_pose.joint_deg[1],
            g_robot_home_pose.joint_deg[2]);
-    BSP_LED_SetState(MODE_LED_GCODE, LED_ON);
-    BSP_LED_SetState(MODE_LED_PS2, LED_OFF);
-    HAL_TIM_Base_Start_IT(&htim6);
+    AppHardware_SetModeIndicator(true, false);
+    AppHardware_StartStepTimer();
     return true;
 }
 
 void App_Init(void)
 {
     PlatformTime_Init();
-    BSP_LED_Init();
-    Dev_Joint_Init();
-    BSP_UART1_Init();
-    BSP_UART1_SendString("System Boot Up OK!\r\n");
-    Dev_Input_Init();
-    Dev_Gripper_Init(&htim2, TIM_CHANNEL_2);
+    AppHardware_Init();
+    AppHardware_SendText("System Boot Up OK!\r\n");
 
-    HAL_Delay(100U);
+    PlatformDelay_Ms(100U);
     printf("\r\n================================\r\nSystem Boot Up OK! Gcode Mode\r\n================================\r\n");
 
-    Dev_Joint_EnableAll(true);
-    Dev_Joint_ConfigureDrivers(&huart6);
+    AppHardware_ConfigureMotionDrivers();
     SafetyService_Init();
     App_StartHoming(false);
 }
@@ -300,7 +285,7 @@ void App_RunOnce(void)
 
     if (s_boot_state == APP_BOOT_HOMING) {
         /* Commands received while homing must not execute after recovery. */
-        BSP_UART1_DiscardRx();
+        AppHardware_DiscardRx();
         Svc_Homing_Step();
         if (Svc_Homing_GetState() == SVC_HOMING_COMPLETE) {
             if (App_FinalizeAfterHoming()) {
@@ -309,13 +294,13 @@ void App_RunOnce(void)
                 if (s_homing_is_recovery) printf("M999OK\r\n");
                 else printf("App runtime initialized.\r\n");
             } else {
-                Dev_Joint_EnableAll(false);
+                AppHardware_EnableJoints(false);
                 s_boot_state = APP_BOOT_FAILED;
             }
         } else if (Svc_Homing_GetState() == SVC_HOMING_FAILED) {
             printf("error: %shoming failed; motion disabled\r\n",
                    s_homing_is_recovery ? "M999 " : "");
-            Dev_Joint_EnableAll(false);
+            AppHardware_EnableJoints(false);
             s_boot_state = APP_BOOT_FAILED;
         }
         return;
@@ -324,10 +309,9 @@ void App_RunOnce(void)
 
     MotionService_ServiceSafety();
     App_GCodeExec_Service();
-    if (BSP_UART1_TakeTxOverflow()) BSP_UART1_SendString("warning: UART TX queue overflow; log dropped\r\n");
+    if (AppHardware_TakeTxOverflow()) AppHardware_SendText("warning: UART TX queue overflow; log dropped\r\n");
     if (SafetyService_HasFault()) {
-        BSP_LED_SetState(MODE_LED_GCODE, LED_OFF);
-        BSP_LED_SetState(MODE_LED_PS2, LED_ON);
+        AppHardware_SetModeIndicator(false, true);
         if (!fault_reported) {
             printf("error: motion safety stop (%s); re-home required\r\n", App_MotionFaultText(MotionService_GetFaultReason()));
             fault_reported = true;
@@ -343,7 +327,7 @@ void App_RunOnce(void)
     App_Teleop_Task();
     SystemMode_t mode = App_Teleop_GetMode();
     App_UpdateModeIndicator(mode);
-    if (mode == SYS_MODE_PS2) BSP_UART1_DiscardRx();
+    if (mode == SYS_MODE_PS2) AppHardware_DiscardRx();
     if (mode == SYS_MODE_GCODE) {
         App_EncoderReportTask();
         App_ClosedLoopTask();
@@ -352,18 +336,4 @@ void App_RunOnce(void)
     }
     Svc_Gripper_IdleStop();
     if (mode == SYS_MODE_GCODE) App_GCodeTask();
-}
-
-void App_ISR_OnTimerElapsed(TIM_HandleTypeDef *htim)
-{
-    if (htim->Instance == TIM6) MotionService_OnStepTickFromISR();
-}
-
-void App_ISR_OnGpioEdge(uint16_t pin)
-{
-    if (pin == M1_STOP_Pin || pin == M2_STOP_Pin || pin == M3_STOP_Pin) {
-        MotionService_NotifyLimitSwitch(pin);
-    } else if (pin == KEY_MODE_Pin) {
-        s_mode_switch_requested = true;
-    }
 }

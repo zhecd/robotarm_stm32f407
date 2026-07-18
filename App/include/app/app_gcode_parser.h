@@ -13,11 +13,13 @@
 
 #include <stdbool.h>
 #include <stdint.h>
+#include "command_types.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
+#if 0 /* Moved to Service/include/command_types.h. */
 typedef enum {
     GCMD_UNKNOWN = -1,      /* Unknown command / 閺堫亞鐓￠幐鍥︽姢 */
     GCMD_G0 = 0,            /* Rapid linear move / 韫囶偊鈧喓娲跨痪璺ㄐ╅崝?*/
@@ -36,6 +38,7 @@ typedef struct {
     uint32_t    f;          /* Feedrate (mm/min) / 鏉╂稓绮伴柅鐔峰 */
     bool        has_x, has_y, has_z, has_f;  /* Parameter present flags / 閸欏倹鏆熺€涙ê婀弽鍥х箶 */
 } GCodeFrame_t;
+#endif
 
 /** Parse one line of G-code / 鐟欙絾鐎芥稉鈧悰?G-code */
 bool App_GCodeParser_ParseLine(const char *line, GCodeFrame_t *frame);

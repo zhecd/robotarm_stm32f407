@@ -15,7 +15,7 @@
 
 /* USER CODE BEGIN Includes */
 #include "app_init.h"
-#include "app_isr.h"
+#include "app_isr_adapter.h"
 /* USER CODE END Includes */
 
 void SystemClock_Config(void);

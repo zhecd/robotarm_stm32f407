@@ -4,7 +4,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-#include "app/app_gcode_parser.h"
+#include "command_types.h"
 #include "common/error_code.h"
 
 typedef enum {

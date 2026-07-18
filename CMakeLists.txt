@@ -18,19 +18,6 @@ message("Build type: " ${CMAKE_BUILD_TYPE})
 add_executable(${CMAKE_PROJECT_NAME})
 add_subdirectory(cmake/stm32cubemx)
 
-set(ROBOTARM_PROJECT_INCLUDE_DIRS
-    Core/Inc
-    App/include
-    BSP/include
-    Device/include
-    Driver/include
-    Domain/include
-    Domain/include/common
-    Service/include
-    Platform
-    Platform/compat
-)
-
 set(ROBOTARM_HAL_INCLUDE_DIRS
     Drivers/STM32F4xx_HAL_Driver/Inc
     Drivers/STM32F4xx_HAL_Driver/Inc/Legacy
@@ -38,9 +25,8 @@ set(ROBOTARM_HAL_INCLUDE_DIRS
     Drivers/CMSIS/Include
 )
 
-function(robotarm_layer target)
-    target_include_directories(${target} PUBLIC ${ROBOTARM_PROJECT_INCLUDE_DIRS} ${ROBOTARM_HAL_INCLUDE_DIRS})
-    target_compile_definitions(${target} PUBLIC USE_HAL_DRIVER STM32F407xx)
+function(robotarm_target target)
+    target_compile_definitions(${target} PRIVATE USE_HAL_DRIVER STM32F407xx)
 endfunction()
 
 # Platform is the only location for bare-metal time, delay and critical-section
@@ -51,13 +37,17 @@ add_library(arm_platform STATIC
     Platform/platform_critical.c
     Platform/compat/os/os_adapter.c
 )
-robotarm_layer(arm_platform)
+robotarm_target(arm_platform)
+target_include_directories(arm_platform PRIVATE
+    Core/Inc Platform Platform/compat ${ROBOTARM_HAL_INCLUDE_DIRS})
 
 add_library(arm_bsp STATIC
     BSP/src/bsp_led.c
     BSP/src/bsp_uart1.c
 )
-robotarm_layer(arm_bsp)
+robotarm_target(arm_bsp)
+target_include_directories(arm_bsp PUBLIC BSP/include)
+target_include_directories(arm_bsp PRIVATE Core/Inc ${ROBOTARM_HAL_INCLUDE_DIRS})
 
 add_library(arm_driver STATIC
     Driver/src/drv_as5600.c
@@ -66,7 +56,10 @@ add_library(arm_driver STATIC
     Driver/src/drv_stepper.c
     Driver/src/drv_tmc2209.c
 )
-robotarm_layer(arm_driver)
+robotarm_target(arm_driver)
+target_include_directories(arm_driver PUBLIC Driver/include)
+target_include_directories(arm_driver PRIVATE
+    Core/Inc BSP/include Domain/include Domain/include/common ${ROBOTARM_HAL_INCLUDE_DIRS})
 target_link_libraries(arm_driver PUBLIC arm_bsp)
 
 add_library(arm_device STATIC
@@ -75,7 +68,10 @@ add_library(arm_device STATIC
     Device/src/dev_joint.c
     Device/src/dev_limit_switch.c
 )
-robotarm_layer(arm_device)
+robotarm_target(arm_device)
+target_include_directories(arm_device PUBLIC Device/include)
+target_include_directories(arm_device PRIVATE
+    Core/Inc Driver/include BSP/include Domain/include Domain/include/common ${ROBOTARM_HAL_INCLUDE_DIRS})
 target_link_libraries(arm_device PUBLIC arm_driver arm_bsp)
 
 # Domain contains pure robot mathematics and kinematics.  It is kept free of
@@ -85,8 +81,8 @@ add_library(arm_domain STATIC
     Domain/common/robot_home_pose.c
     Domain/kinematics/kinematics.c
 )
-robotarm_layer(arm_domain)
-target_link_libraries(arm_domain PUBLIC arm_platform)
+robotarm_target(arm_domain)
+target_include_directories(arm_domain PUBLIC Domain/include Domain/include/common)
 
 add_library(arm_service STATIC
     Service/command/command_service.c
@@ -95,13 +91,21 @@ add_library(arm_service STATIC
     Service/safety/safety_service.c
     Service/gripper/svc_gripper.c
     Service/homing/svc_homing.c
-    Service/control/ctrl_motion_engine.c
-    Service/control/ctrl_planner.c
-    Service/control/ctrl_closed_loop.c
-    Service/control/ctrl_compensation.c
+    Service/motion/internal/ctrl_motion_engine.c
+    Service/motion/internal/ctrl_planner.c
+    Service/motion/internal/ctrl_closed_loop.c
+    Service/motion/internal/ctrl_compensation.c
 )
-robotarm_layer(arm_service)
-target_link_libraries(arm_service PUBLIC arm_domain arm_device arm_platform)
+robotarm_target(arm_service)
+target_include_directories(arm_service PUBLIC Service/include)
+target_include_directories(arm_service PRIVATE
+    Core/Inc
+    Service/motion/internal
+    BSP/include Device/include Driver/include
+    Domain/include Domain/include/common
+    Platform Platform/compat
+    ${ROBOTARM_HAL_INCLUDE_DIRS})
+target_link_libraries(arm_service PRIVATE arm_domain arm_device arm_platform)
 
 add_library(arm_app STATIC
     App/app_runtime.c
@@ -110,11 +114,39 @@ add_library(arm_app STATIC
     App/app_teleop.c
     App/app_calibration.c
 )
-robotarm_layer(arm_app)
-target_link_libraries(arm_app PUBLIC arm_service arm_device arm_platform arm_bsp)
+robotarm_target(arm_app)
+target_include_directories(arm_app PUBLIC App/include)
+target_include_directories(arm_app PRIVATE
+    App/adapters
+    Service/include
+    Domain/include Domain/include/common
+    Platform Platform/compat)
+target_link_libraries(arm_app PRIVATE arm_service arm_platform arm_domain)
 
-target_include_directories(${CMAKE_PROJECT_NAME} PRIVATE ${ROBOTARM_PROJECT_INCLUDE_DIRS})
-target_link_libraries(${CMAKE_PROJECT_NAME} PRIVATE arm_app stm32cubemx)
+# Adapters are the only App code allowed to know STM32 handles, BSP or Device.
+add_library(arm_app_adapters STATIC
+    App/adapters/app_hardware_adapter.c
+    App/adapters/app_isr_adapter.c
+)
+robotarm_target(arm_app_adapters)
+target_include_directories(arm_app_adapters PRIVATE
+    Core/Inc App/include App/adapters
+    Service/include BSP/include Device/include Driver/include
+    Domain/include Domain/include/common
+    ${ROBOTARM_HAL_INCLUDE_DIRS})
+target_link_libraries(arm_app_adapters PRIVATE arm_service arm_device arm_bsp)
+
+target_include_directories(${CMAKE_PROJECT_NAME} PRIVATE Core/Inc App/include App/adapters)
+target_link_libraries(${CMAKE_PROJECT_NAME} PRIVATE
+    arm_app
+    arm_app_adapters
+    arm_service
+    arm_domain
+    arm_device
+    arm_driver
+    arm_bsp
+    arm_platform
+    stm32cubemx)
 
 find_package(Python3 COMPONENTS Interpreter QUIET)
 if(Python3_Interpreter_FOUND)

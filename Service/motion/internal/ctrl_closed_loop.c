@@ -4,8 +4,8 @@
  * @ingroup control
  */
 
-#include "service/control/ctrl_closed_loop.h"
-#include "service/control/ctrl_motion_engine.h"
+#include "ctrl_closed_loop.h"
+#include "ctrl_motion_engine.h"
 #include "safety_service.h"
 #include "state_service.h"
 #include "device/dev_joint.h"

@@ -4,7 +4,7 @@
  * @ingroup control
  */
 
-#include "service/control/ctrl_motion_engine.h"
+#include "ctrl_motion_engine.h"
 #include "device/dev_joint.h"
 #include "device/dev_limit_switch.h"
 #include "platform_critical.h"

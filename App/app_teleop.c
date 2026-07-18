@@ -4,8 +4,8 @@
  */
 
 #include "app/app_teleop.h"
+#include "app_hardware_adapter.h"
 #include "service/svc_gripper.h"
-#include "device/dev_input.h"
 #include "command_service.h"
 #include "motion_service.h"
 #include "platform_time.h"
@@ -15,7 +15,8 @@
 
 static SystemMode_t s_mode           = SYS_MODE_GCODE;
 static uint32_t     s_last_poll_ms   = 0U;
-static uint16_t     s_last_buttons   = 0xFFFFU;
+static bool         s_last_cross_pressed = false;
+static bool         s_last_square_pressed = false;
 static bool         s_fault_reported = false;
 
 SystemMode_t App_Teleop_GetMode(void)        { return s_mode; }
@@ -31,6 +32,8 @@ static void StopMotion(void)
 void App_Teleop_Init(void)
 {
     s_last_poll_ms  = PlatformTime_NowMs();
+    s_last_cross_pressed = false;
+    s_last_square_pressed = false;
     s_fault_reported = false;
     printf("App_Teleop initialized.\r\n");
 }
@@ -42,8 +45,8 @@ void App_Teleop_Task(void)
         return;
     s_last_poll_ms = now;
 
-    DevInputState_t ps2 = {0};
-    bool valid = Dev_Input_Read(&ps2);
+    AppTeleopInput_t ps2 = {0};
+    bool valid = AppHardware_ReadTeleopInput(&ps2);
 
     if (!valid) {
         if (s_mode == SYS_MODE_PS2) {
@@ -80,15 +83,16 @@ void App_Teleop_Task(void)
         }
 
         /* Cross = close, Square = open / 鍙夐�?鍏抽�? 鏂归�?鎵撳�?*/
-        if ((s_last_buttons & DEV_INPUT_BTN_CROSS) && !(ps2.buttons & DEV_INPUT_BTN_CROSS)) {
+        if (!s_last_cross_pressed && ps2.cross_pressed) {
             Svc_Gripper_Close();
             printf("PS2: Gripper Close\r\n");
         }
-        if ((s_last_buttons & DEV_INPUT_BTN_SQUARE) && !(ps2.buttons & DEV_INPUT_BTN_SQUARE)) {
+        if (!s_last_square_pressed && ps2.square_pressed) {
             Svc_Gripper_Open();
             printf("PS2: Gripper Open\r\n");
         }
     }
 
-    s_last_buttons = ps2.buttons;
+    s_last_cross_pressed = ps2.cross_pressed;
+    s_last_square_pressed = ps2.square_pressed;
 }

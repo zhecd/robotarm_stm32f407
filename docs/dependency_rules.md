@@ -18,6 +18,14 @@ App → Service → Device → Driver → BSP/HAL → Hardware
 | Driver | 关节名称、Home Pose、XYZ、G-code 和安全故障 |
 | BSP | 机械臂关节、末端坐标和业务策略 |
 
+## 编译期边界
+
+本工程使用按目标划分的 CMake 包含目录，而不是把全部目录添加到每一个目标。`arm_app` 只能看到 App、Service、Domain 和 Platform 的公开接口；硬件相关头文件仅提供给 `arm_app_adapters`。`arm_service` 可以使用 Device、Domain 和 Platform 的公开接口，但运动控制内部头文件仅在 `Service/motion/internal/` 中可见。
+
+`scripts/check_architecture_dependencies.py` 会额外检查 Domain、Service 与普通 App 源文件。App/adapters 是唯一允许包含 HAL、BSP 或 Device 头文件的 App 子目录。
+
+因此，新增模块时应先判断其对外接口属于哪一层，再将实现文件加入对应 CMake 目标。若某文件必须访问 STM32 句柄、GPIO 引脚或 HAL 回调，应放在 BSP、Driver、Device 或 `App/adapters/`，而不应放入普通 App、Service 或 Domain 源文件。
+
 ## 调用规则
 
 1. App 负责初始化、协作式任务调度、ISR 分发和输入/输出适配，不保存业务状态。

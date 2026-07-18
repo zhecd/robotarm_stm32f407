@@ -5,7 +5,6 @@
  */
 
 #include "app/app_calibration.h"
-#include "service/control/ctrl_closed_loop.h"
 #include "motion_service.h"
 #include "os/os_adapter.h"
 #include "error_code.h"
@@ -19,9 +18,9 @@ bool App_Calibration_Execute(void)
        閲嶈瘯鏈€澶?3 �? 闃叉�?I2C 鐬€佹晠闅滃鑷磋鍒ゃ€?*/
     ErrorCode_t ok1 = ERR_ENCODER_FAIL, ok2 = ERR_ENCODER_FAIL, ok3 = ERR_ENCODER_FAIL;
     for (int retry = 0; retry < 3; retry++) {
-        if (ok1 != ERR_OK) ok1 = Ctrl_ClosedLoop_SetAxisZero(0);
-        if (ok2 != ERR_OK) ok2 = Ctrl_ClosedLoop_SetAxisZero(1);
-        if (ok3 != ERR_OK) ok3 = Ctrl_ClosedLoop_SetAxisZero(2);
+        if (ok1 != ERR_OK) ok1 = MotionService_SetClosedLoopAxisZero(0);
+        if (ok2 != ERR_OK) ok2 = MotionService_SetClosedLoopAxisZero(1);
+        if (ok3 != ERR_OK) ok3 = MotionService_SetClosedLoopAxisZero(2);
         if (ok1 == ERR_OK && ok2 == ERR_OK && ok3 == ERR_OK) break;
         Os_DelayMs(10U);
     }
@@ -37,8 +36,8 @@ bool App_Calibration_Execute(void)
        鏃犺鏍″噯鏄惁鎴愬姛閮藉惎鐢ㄦ墍鏈夎酱銆係etZero 澶辫触浠呰〃绀洪浂鐐规湭璁剧疆,
        缂栫爜鍣ㄤ粛鍙敤浜庣浉瀵瑰畾浣嶅拰澶氬湀杩借釜�?*/
     bool success = (ok1 == ERR_OK && ok2 == ERR_OK && ok3 == ERR_OK);
-    Ctrl_ClosedLoop_SetAxisEnabled(0, success);
-    Ctrl_ClosedLoop_SetAxisEnabled(1, success);
-    Ctrl_ClosedLoop_SetAxisEnabled(2, success);
+    MotionService_SetClosedLoopAxisEnabled(0, success);
+    MotionService_SetClosedLoopAxisEnabled(1, success);
+    MotionService_SetClosedLoopAxisEnabled(2, success);
     return success;
 }

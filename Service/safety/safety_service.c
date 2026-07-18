@@ -1,7 +1,7 @@
 #include "safety_service.h"
 
 #include "platform_critical.h"
-#include "service/control/ctrl_motion_engine.h"
+#include "motion_service.h"
 
 static SafetyServiceStatus_t s_status;
 
@@ -41,7 +41,7 @@ static void LatchFault(SafetyFault_t fault)
     PlatformCritical_Exit(state);
 
     if (!already_latched)
-        Ctrl_MotionEngine_EmergencyStopWithReason(ToLegacyReason(fault));
+        MotionService_StopForSafety(ToLegacyReason(fault));
 }
 
 void SafetyService_Init(void)
@@ -64,8 +64,8 @@ void SafetyService_ReportQueueTimeout(void) { LatchFault(SAFETY_FAULT_QUEUE_TIME
 
 void SafetyService_ObserveLegacyMotionFault(void)
 {
-    if (Ctrl_MotionEngine_HasFault())
-        LatchFault(FromLegacyReason(Ctrl_MotionEngine_GetFaultReason()));
+    if (MotionService_HasFault())
+        LatchFault(FromLegacyReason(MotionService_GetFaultReason()));
 }
 
 bool SafetyService_IsMotionAllowed(void)
@@ -116,5 +116,5 @@ void SafetyService_ClearAfterSuccessfulHoming(void)
         s_status.generation++;
     }
     PlatformCritical_Exit(state);
-    if (homed) Ctrl_MotionEngine_ClearFault();
+    if (homed) MotionService_ClearFault();
 }

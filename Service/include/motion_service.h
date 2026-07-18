@@ -4,7 +4,8 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-#include "service/control/ctrl_motion_engine.h"
+#include "motion_types.h"
+#include "common/error_code.h"
 
 void MotionService_Init(void);
 bool MotionService_SubmitFrame(const MotionFrame_t *frame);
@@ -21,5 +22,17 @@ void MotionService_StopForSafety(MotionFaultReason_t reason);
 void MotionService_SetLimitMonitoring(bool enabled);
 void MotionService_NotifyLimitSwitch(uint16_t gpio_pin);
 MotionFaultReason_t MotionService_GetFaultReason(void);
+bool MotionService_HasFault(void);
+void MotionService_ClearFault(void);
+
+/* Closed-loop feedback is owned by the motion service; App must not access
+ * its implementation directly. */
+void MotionService_InitClosedLoop(void);
+void MotionService_SyncClosedLoopTarget(void);
+void MotionService_UpdateClosedLoop(void);
+bool MotionService_IsClosedLoopAxisEnabled(int axis);
+void MotionService_SetClosedLoopAxisEnabled(int axis, bool enabled);
+bool MotionService_GetClosedLoopAxisAngle(int axis, float *out_deg);
+ErrorCode_t MotionService_SetClosedLoopAxisZero(int axis);
 
 #endif
