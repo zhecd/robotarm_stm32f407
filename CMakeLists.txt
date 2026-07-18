@@ -48,23 +48,18 @@ target_include_directories(arm_platform PRIVATE
 add_library(arm_bsp STATIC
     ${ROBOTARM_SOURCE_ROOT}/BSP/src/bsp_led.c
     ${ROBOTARM_SOURCE_ROOT}/BSP/src/bsp_uart1.c
+    ${ROBOTARM_SOURCE_ROOT}/BSP/driver/src/drv_as5600.c
+    ${ROBOTARM_SOURCE_ROOT}/BSP/driver/src/drv_ps2.c
+    ${ROBOTARM_SOURCE_ROOT}/BSP/driver/src/drv_servo.c
+    ${ROBOTARM_SOURCE_ROOT}/BSP/driver/src/drv_stepper.c
+    ${ROBOTARM_SOURCE_ROOT}/BSP/driver/src/drv_tmc2209.c
 )
 robotarm_target(arm_bsp)
-target_include_directories(arm_bsp PUBLIC ${ROBOTARM_SOURCE_ROOT}/BSP/include)
-target_include_directories(arm_bsp PRIVATE Core/Inc ${ROBOTARM_HAL_INCLUDE_DIRS})
-
-add_library(arm_driver STATIC
-    ${ROBOTARM_SOURCE_ROOT}/Driver/src/drv_as5600.c
-    ${ROBOTARM_SOURCE_ROOT}/Driver/src/drv_ps2.c
-    ${ROBOTARM_SOURCE_ROOT}/Driver/src/drv_servo.c
-    ${ROBOTARM_SOURCE_ROOT}/Driver/src/drv_stepper.c
-    ${ROBOTARM_SOURCE_ROOT}/Driver/src/drv_tmc2209.c
-)
-robotarm_target(arm_driver)
-target_include_directories(arm_driver PUBLIC ${ROBOTARM_SOURCE_ROOT}/Driver/include)
-target_include_directories(arm_driver PRIVATE
-    Core/Inc ${ROBOTARM_SOURCE_ROOT}/BSP/include ${ROBOTARM_SOURCE_ROOT}/Domain/include ${ROBOTARM_SOURCE_ROOT}/Domain/include/common ${ROBOTARM_HAL_INCLUDE_DIRS})
-target_link_libraries(arm_driver PUBLIC arm_bsp)
+target_include_directories(arm_bsp PUBLIC
+    ${ROBOTARM_SOURCE_ROOT}/BSP/include
+    ${ROBOTARM_SOURCE_ROOT}/BSP/driver/include)
+target_include_directories(arm_bsp PRIVATE
+    Core/Inc ${ROBOTARM_SOURCE_ROOT}/Domain/include ${ROBOTARM_SOURCE_ROOT}/Domain/include/common ${ROBOTARM_HAL_INCLUDE_DIRS})
 
 add_library(arm_device STATIC
     ${ROBOTARM_SOURCE_ROOT}/Device/src/dev_gripper.c
@@ -75,8 +70,8 @@ add_library(arm_device STATIC
 robotarm_target(arm_device)
 target_include_directories(arm_device PUBLIC ${ROBOTARM_SOURCE_ROOT}/Device/include)
 target_include_directories(arm_device PRIVATE
-    Core/Inc ${ROBOTARM_SOURCE_ROOT}/Driver/include ${ROBOTARM_SOURCE_ROOT}/BSP/include ${ROBOTARM_SOURCE_ROOT}/Domain/include ${ROBOTARM_SOURCE_ROOT}/Domain/include/common ${ROBOTARM_HAL_INCLUDE_DIRS})
-target_link_libraries(arm_device PUBLIC arm_driver arm_bsp)
+    Core/Inc ${ROBOTARM_SOURCE_ROOT}/BSP/include ${ROBOTARM_SOURCE_ROOT}/Domain/include ${ROBOTARM_SOURCE_ROOT}/Domain/include/common ${ROBOTARM_HAL_INCLUDE_DIRS})
+target_link_libraries(arm_device PUBLIC arm_bsp)
 
 # Domain contains pure robot mathematics and kinematics.  It is kept free of
 # HAL, BSP, Device, Service and App dependencies so it remains host-testable.
@@ -105,7 +100,7 @@ target_include_directories(arm_service PUBLIC ${ROBOTARM_SOURCE_ROOT}/Service/in
 target_include_directories(arm_service PRIVATE
     Core/Inc
     ${ROBOTARM_SOURCE_ROOT}/Service/motion/internal
-    ${ROBOTARM_SOURCE_ROOT}/BSP/include ${ROBOTARM_SOURCE_ROOT}/Device/include ${ROBOTARM_SOURCE_ROOT}/Driver/include
+    ${ROBOTARM_SOURCE_ROOT}/BSP/include ${ROBOTARM_SOURCE_ROOT}/Device/include
     ${ROBOTARM_SOURCE_ROOT}/Domain/include ${ROBOTARM_SOURCE_ROOT}/Domain/include/common
     ${ROBOTARM_SOURCE_ROOT}/Platform ${ROBOTARM_SOURCE_ROOT}/Platform/compat
     ${ROBOTARM_HAL_INCLUDE_DIRS})
@@ -135,7 +130,7 @@ add_library(arm_app_adapters STATIC
 robotarm_target(arm_app_adapters)
 target_include_directories(arm_app_adapters PRIVATE
     Core/Inc ${ROBOTARM_SOURCE_ROOT}/App/include ${ROBOTARM_SOURCE_ROOT}/App/adapters
-    ${ROBOTARM_SOURCE_ROOT}/Service/include ${ROBOTARM_SOURCE_ROOT}/BSP/include ${ROBOTARM_SOURCE_ROOT}/Device/include ${ROBOTARM_SOURCE_ROOT}/Driver/include
+    ${ROBOTARM_SOURCE_ROOT}/Service/include ${ROBOTARM_SOURCE_ROOT}/BSP/include ${ROBOTARM_SOURCE_ROOT}/Device/include
     ${ROBOTARM_SOURCE_ROOT}/Domain/include ${ROBOTARM_SOURCE_ROOT}/Domain/include/common
     ${ROBOTARM_HAL_INCLUDE_DIRS})
 target_link_libraries(arm_app_adapters PRIVATE arm_service arm_device arm_bsp)
@@ -148,7 +143,6 @@ target_link_libraries(${CMAKE_PROJECT_NAME} PRIVATE
     arm_service
     arm_domain
     arm_device
-    arm_driver
     arm_bsp
     arm_platform
     stm32cubemx)

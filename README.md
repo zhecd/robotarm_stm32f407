@@ -17,13 +17,12 @@
 ## 软件架构
 
 ```text
-APP → SERVICE → DEVICE → DRIVER → BSP/HAL → Hardware
+APP → SERVICE → DEVICE → BSP/HAL → Hardware
 ```
 
 - `app/`：G-code、PS2 遥操作、模式与校准流程。
 - `service/`：回零、夹爪服务，以及运动学、规划、闭环等控制算法。
 - `device/`：关节、夹爪、限位和操作者输入等设备级接口。
-- `driver/`：AS5600、TMC2209、STEP/DIR、PWM 舵机和 PS2 协议。
 - `bsp/`：STM32 板级 UART 与 LED。
 - `os/`：裸机时间与延时适配；后续迁移 FreeRTOS 时在此替换实现。
 - `common/`：机械臂配置、数学工具、Home Pose 与错误码。

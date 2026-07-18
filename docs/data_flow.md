@@ -22,7 +22,7 @@
 
 ```text
 AS5600
-  → AS5600 Driver（I2C 原始角度）
+  → BSP/driver：AS5600 驱动（I2C 原始角度）
   → Joint Device（连续电机角）
   → Closed-loop / StateService
   → 关节角和编码器有效性快照

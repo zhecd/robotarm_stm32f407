@@ -5,14 +5,14 @@
 本项目采用“主调用链 + 侧向能力”的分层方式。主调用链描述一次机器人命令如何抵达硬件；Domain 和 Platform 提供被多个层复用的算法与运行时能力，但不承担额外的业务层级。
 
 ```text
-Core / CubeMX → App → Service → Device → Driver → BSP / HAL → Hardware
+Core / CubeMX → App → Service → Device → BSP / HAL → Hardware
                          ↑
                        Domain
 
                  Platform（时间、临界区、调度）
 ```
 
-主调用方向为 `App → Service → Device → Driver → BSP/HAL`。反向信息通过只读状态快照、事件或服务查询接口返回，而不是由下层直接调用上层。
+主调用方向为 `App → Service → Device → BSP/HAL`。反向信息通过只读状态快照、事件或服务查询接口返回，而不是由下层直接调用上层。
 
 ## 各层职责
 
@@ -23,8 +23,7 @@ Core / CubeMX → App → Service → Device → Driver → BSP / HAL → Hardwa
 | Service | 命令仲裁、运动、状态、安全、回零、夹爪和参数等业务能力 | HAL 句柄、GPIO 引脚和芯片寄存器 |
 | Domain | 运动学、轨迹、插补、PID、数学限位和 G-code 语法 | 硬件、HAL、RTOS、当前模式和队列状态 |
 | Device | 关节、夹爪、限位、操作输入、主机链路和指示灯等机器人部件 | G-code、XYZ 轨迹、故障策略 |
-| Driver | AS5600、TMC2209、STEP/DIR、舵机 PWM、PS2 等芯片或协议 | 关节语义、Home Pose、G-code |
-| BSP / HAL | STM32 外设句柄、引脚映射、DMA 和板级资源 | 关节、笛卡尔坐标和业务策略 |
+| BSP / HAL | STM32 外设句柄、引脚映射、DMA 和板级资源；`BSP/driver` 中的 AS5600、TMC2209、STEP/DIR、舵机 PWM、PS2 驱动 | 关节、笛卡尔坐标和业务策略 |
 | Platform | 时间、延时、临界区、事件和协作式调度接口 | 机器人业务与硬件引脚 |
 
 ## 当前实现
@@ -45,7 +44,7 @@ RobotArm/             全部手写机械臂固件代码
 ├─ App/               应用初始化、任务调度、G-code 解析与 PS2 适配
 ├─ BSP/               LED、UART 等板级资源及其公开接口
 ├─ Device/            关节、夹爪、限位与输入设备抽象
-├─ Driver/            AS5600、TMC2209、STEP/DIR、舵机与 PS2 驱动
+├─ BSP/driver/        AS5600、TMC2209、STEP/DIR、舵机与 PS2 驱动
 ├─ Domain/            运动学、Home Pose 与数学算法
 ├─ Service/           命令、运动、安全、状态、回零、夹爪与控制服务
 └─ Platform/          时间、延时、临界区与兼容接口
@@ -58,7 +57,7 @@ Drivers/              STM32 HAL 与 CMSIS 代码
 
 ## 构建边界与内部实现
 
-本工程不再为所有目标统一导出全部头文件路径。CMake 为 `arm_platform`、`arm_bsp`、`arm_driver`、`arm_device`、`arm_domain`、`arm_service`、`arm_app` 和 `arm_app_adapters` 分别声明包含目录与链接依赖。编译阶段因此能够发现跨层包含，而不是依赖代码审查才发现问题。
+本工程不再为所有目标统一导出全部头文件路径。CMake 为 `arm_platform`、`arm_bsp`、`arm_device`、`arm_domain`、`arm_service`、`arm_app` 和 `arm_app_adapters` 分别声明包含目录与链接依赖。`BSP/driver` 与板级 UART、LED 同属于 `arm_bsp`。编译阶段因此能够发现跨层包含，而不是依赖代码审查才发现问题。
 
 `RobotArm/App/` 进一步分为应用逻辑与硬件适配两部分：
 
@@ -68,7 +67,7 @@ Drivers/              STM32 HAL 与 CMSIS 代码
 
 G-code 语法解析仍位于 App，而解析后的 `GCodeFrame_t` 已放入 `RobotArm/Service/include/command_types.h`。这使 CommandService 不再反向包含 App 头文件：App 负责把文本转换为命令帧，Service 负责解释命令帧对应的机器人动作。
 
-当前与硬件有关的入口均集中在 `Core/` 和 `RobotArm/App/adapters/`；`RobotArm/Domain/` 保持为不依赖 STM32 的数学与运动学代码。这样既保留了机械臂项目的 Device/Driver 抽象，也形成了可独立检查的编译依赖边界。
+当前与硬件有关的入口均集中在 `Core/`、`RobotArm/App/adapters/` 与 `RobotArm/BSP/`；`RobotArm/Domain/` 保持为不依赖 STM32 的数学与运动学代码。`Device` 仍保留关节、夹爪、限位与手柄等机械臂部件语义，而具体芯片驱动归入 BSP。这样形成了更适合固定硬件平台的编译依赖边界。
 
 ## 关键规则
 
