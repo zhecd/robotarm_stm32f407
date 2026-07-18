@@ -31,6 +31,11 @@ bool App_GCodeExec_TakeMoveResult(ErrorCode_t *out_result)
     return CommandService_TakeMoveResult(out_result);
 }
 
+bool App_GCodeExec_TakeQueuedMoveResult(ErrorCode_t *out_result)
+{
+    return CommandService_TakeQueuedMoveResult(out_result);
+}
+
 bool App_GCodeExec_IsMotionPending(void)
 {
     return CommandService_IsMotionPending();

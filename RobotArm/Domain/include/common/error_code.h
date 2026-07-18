@@ -19,6 +19,8 @@ extern "C" {
 typedef enum {
     /* Command accepted; its asynchronous validation is still in progress. */
     ERR_PENDING         =  1,
+    /* Command accepted into the waypoint FIFO; execution follows FIFO order. */
+    ERR_QUEUED          =  2,
     ERR_OK              =  0,    /* Success / 鎴愬�?*/
     ERR_NULL_PARAM      = -1,    /* Null pointer parameter / 绌烘寚閽堝弬�?*/
     ERR_I2C_FAIL        = -2,    /* I2C communication failure / I2C 閫氫俊澶辫触 */

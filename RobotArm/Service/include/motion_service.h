@@ -30,6 +30,7 @@ void MotionService_ClearFault(void);
 void MotionService_InitClosedLoop(void);
 void MotionService_SyncClosedLoopTarget(void);
 void MotionService_UpdateClosedLoop(void);
+bool MotionService_IsClosedLoopRecoveryActive(void);
 bool MotionService_IsClosedLoopAxisEnabled(int axis);
 void MotionService_SetClosedLoopAxisEnabled(int axis, bool enabled);
 bool MotionService_GetClosedLoopAxisAngle(int axis, float *out_deg);

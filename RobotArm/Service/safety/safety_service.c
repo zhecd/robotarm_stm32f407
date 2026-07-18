@@ -12,6 +12,7 @@ static MotionFaultReason_t ToLegacyReason(SafetyFault_t fault)
     case SAFETY_FAULT_ENCODER: return MOTION_FAULT_ENCODER;
     case SAFETY_FAULT_SOFT_LIMIT: return MOTION_FAULT_SOFT_LIMIT;
     case SAFETY_FAULT_QUEUE_TIMEOUT: return MOTION_FAULT_QUEUE_TIMEOUT;
+    case SAFETY_FAULT_CONTROL_DIVERGENCE: return MOTION_FAULT_CONTROL_DIVERGENCE;
     default: return MOTION_FAULT_NONE;
     }
 }
@@ -23,6 +24,7 @@ static SafetyFault_t FromLegacyReason(MotionFaultReason_t reason)
     case MOTION_FAULT_ENCODER: return SAFETY_FAULT_ENCODER;
     case MOTION_FAULT_SOFT_LIMIT: return SAFETY_FAULT_SOFT_LIMIT;
     case MOTION_FAULT_QUEUE_TIMEOUT: return SAFETY_FAULT_QUEUE_TIMEOUT;
+    case MOTION_FAULT_CONTROL_DIVERGENCE: return SAFETY_FAULT_CONTROL_DIVERGENCE;
     default: return SAFETY_FAULT_INTERNAL;
     }
 }
@@ -61,6 +63,7 @@ void SafetyService_ReportLimitSwitch(void) { LatchFault(SAFETY_FAULT_LIMIT_SWITC
 void SafetyService_ReportEncoderFailure(void) { LatchFault(SAFETY_FAULT_ENCODER); }
 void SafetyService_ReportSoftLimit(void) { LatchFault(SAFETY_FAULT_SOFT_LIMIT); }
 void SafetyService_ReportQueueTimeout(void) { LatchFault(SAFETY_FAULT_QUEUE_TIMEOUT); }
+void SafetyService_ReportControlDivergence(void) { LatchFault(SAFETY_FAULT_CONTROL_DIVERGENCE); }
 
 void SafetyService_ObserveLegacyMotionFault(void)
 {

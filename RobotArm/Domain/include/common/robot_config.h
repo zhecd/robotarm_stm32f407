@@ -11,6 +11,54 @@
 #ifndef __ROBOT_CONFIG_H__
 #define __ROBOT_CONFIG_H__
 
+#ifndef CL_SETTLE_MS
+#define CL_SETTLE_MS 250U
+#endif
+
+#ifndef CL_MAX_CORRECTION_DEG
+#define CL_MAX_CORRECTION_DEG 2.0f
+#endif
+
+#ifndef CL_DIVERGENCE_TOLERANCE_DEG
+#define CL_DIVERGENCE_TOLERANCE_DEG 0.5f
+#endif
+
+#ifndef CL_DIVERGENCE_LIMIT
+#define CL_DIVERGENCE_LIMIT 2U
+#endif
+
+#ifndef CL_RECOVERY_TRIGGER_DEG
+#define CL_RECOVERY_TRIGGER_DEG 8.0f
+#endif
+
+#ifndef CL_RECOVERY_TARGET_FRACTION
+#define CL_RECOVERY_TARGET_FRACTION 1.0f
+#endif
+
+#ifndef CL_RECOVERY_MAX_DEG
+#define CL_RECOVERY_MAX_DEG 30.0f
+#endif
+
+#ifndef CL_RECOVERY_MIN_PROGRESS_DEG
+#define CL_RECOVERY_MIN_PROGRESS_DEG 2.0f
+#endif
+
+#ifndef CL_RECOVERY_NO_PROGRESS_LIMIT
+#define CL_RECOVERY_NO_PROGRESS_LIMIT 2U
+#endif
+
+#ifndef CL_RECOVERY_STEPS_PER_SEGMENT
+#define CL_RECOVERY_STEPS_PER_SEGMENT 1U
+#endif
+
+#ifndef CL_RECOVERY_TICKS_PER_STEP
+#define CL_RECOVERY_TICKS_PER_STEP 300U
+#endif
+
+#ifndef CL_RECOVERY_QUEUE_AHEAD
+#define CL_RECOVERY_QUEUE_AHEAD 24U
+#endif
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -290,6 +338,10 @@ extern "C" {
 
 #ifndef GCODE_MIN_DURATION_MS
 #define GCODE_MIN_DURATION_MS   1U           /* Minimum move duration (ms) / 鏈€灏忕Щ鍔ㄦ椂闀?*/
+#endif
+
+#ifndef COMMAND_WAYPOINT_QUEUE_SIZE
+#define COMMAND_WAYPOINT_QUEUE_SIZE 16U      /* Cartesian waypoint FIFO capacity. */
 #endif
 
 /* 鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺?

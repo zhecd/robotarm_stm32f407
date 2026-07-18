@@ -10,6 +10,7 @@ typedef enum {
     SAFETY_FAULT_ENCODER,
     SAFETY_FAULT_SOFT_LIMIT,
     SAFETY_FAULT_QUEUE_TIMEOUT,
+    SAFETY_FAULT_CONTROL_DIVERGENCE,
     SAFETY_FAULT_INTERNAL
 } SafetyFault_t;
 
@@ -26,6 +27,7 @@ void SafetyService_ReportLimitSwitch(void);
 void SafetyService_ReportEncoderFailure(void);
 void SafetyService_ReportSoftLimit(void);
 void SafetyService_ReportQueueTimeout(void);
+void SafetyService_ReportControlDivergence(void);
 void SafetyService_ObserveLegacyMotionFault(void);
 bool SafetyService_IsMotionAllowed(void);
 bool SafetyService_HasFault(void);

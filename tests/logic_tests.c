@@ -7,6 +7,7 @@
 #include "domain/kinematics.h"
 #include "error_code.h"
 #include "robot_config.h"
+#include "robot_math.h"
 
 static void TestGCodeParser(void)
 {
@@ -50,10 +51,20 @@ static void TestKinematics(void)
     assert(units.high_units == -(int32_t)(20.0f * UNITS_PER_DEGREE));
 }
 
+static void TestClosedLoopUnitConvention(void)
+{
+    /* Kinematics emits motor steps.  A one-degree joint move corresponds to
+       GEAR_RATIO motor-shaft degrees and must be directly comparable with
+       the AS5600 motor-shaft reading. */
+    int32_t motor_steps = (int32_t)UNITS_PER_DEGREE;
+    assert(fabsf(StepsToDeg(motor_steps) - GEAR_RATIO) < 0.001f);
+}
+
 int main(void)
 {
     TestGCodeParser();
     TestKinematics();
+    TestClosedLoopUnitConvention();
     puts("robotarm_logic_tests: passed");
     return 0;
 }

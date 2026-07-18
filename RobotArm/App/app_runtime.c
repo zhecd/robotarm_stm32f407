@@ -174,6 +174,10 @@ static void App_GCodeTask(void)
         s_wait_for_plan_start = true;
         return;
     }
+    if (status == ERR_QUEUED) {
+        printf("queued\r\n");
+        return;
+    }
     if (status != ERR_OK) {
         printf("error: command rejected (%d)\r\n", (int)status);
         return;
@@ -220,6 +224,7 @@ static const char *App_MotionFaultText(MotionFaultReason_t reason)
     case MOTION_FAULT_ENCODER: return "encoder communication";
     case MOTION_FAULT_SOFT_LIMIT: return "actual joint soft limit";
     case MOTION_FAULT_QUEUE_TIMEOUT: return "planner queue timeout";
+    case MOTION_FAULT_CONTROL_DIVERGENCE: return "closed-loop correction divergence";
     default: return "unspecified";
     }
 }
@@ -309,6 +314,15 @@ void App_RunOnce(void)
 
     MotionService_ServiceSafety();
     App_GCodeExec_Service();
+    ErrorCode_t queued_result;
+    while (App_GCodeExec_TakeQueuedMoveResult(&queued_result)) {
+        if (queued_result == ERR_OK) {
+            MotionService_SyncClosedLoopTarget();
+        } else {
+            printf("error: queued command rejected (%d); queue cleared\r\n",
+                   (int)queued_result);
+        }
+    }
     if (AppHardware_TakeTxOverflow()) AppHardware_SendText("# WARN: UART TX queue overflow; log dropped\r\n");
     if (SafetyService_HasFault()) {
         AppHardware_SetModeIndicator(false, true);

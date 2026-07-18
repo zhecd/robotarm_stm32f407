@@ -26,7 +26,9 @@ ErrorCode_t CommandService_RunGCode(const GCodeFrame_t *frame);
 ErrorCode_t CommandService_RunTeleopStep(float dx_mm, float dy_mm, float dz_mm);
 void CommandService_Service(void);
 bool CommandService_TakeMoveResult(ErrorCode_t *out_result);
+bool CommandService_TakeQueuedMoveResult(ErrorCode_t *out_result);
 bool CommandService_IsMotionPending(void);
+uint16_t CommandService_GetQueuedMoveCount(void);
 void CommandService_GetStatus(CommandServiceStatus_t *out_status);
 
 #endif

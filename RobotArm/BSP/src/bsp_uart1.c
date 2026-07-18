@@ -39,6 +39,23 @@ static void StartRxDMA(void)
     (void)HAL_UART_Receive_DMA(&huart1, s_rx.buffer, BSP_UART1_RX_BUF_SIZE);
 }
 
+/* A UART error invalidates the DMA cursor and any partial line.  Reset every
+   software cursor before restarting DMA so stale bytes cannot be parsed as a
+   later G-code command. */
+static void ResetRxAfterError(void)
+{
+    uint32_t primask = __get_PRIMASK();
+    __disable_irq();
+    s_rx.head = 0U;
+    s_rx.tail = 0U;
+    s_dma_wrap_count = 0U;
+    s_observed_wrap_count = 0U;
+    s_last_rx_tick = HAL_GetTick();
+    s_line_timeout = false;
+    s_rx_overflow = false;
+    __set_PRIMASK(primask);
+}
+
 static void StartTxIT(void)
 {
     uint8_t *data;
@@ -250,6 +267,7 @@ void HAL_UART_ErrorCallback(UART_HandleTypeDef *huart)
     if (huart->Instance == USART1) {
         __HAL_UART_CLEAR_OREFLAG(huart);
         (void)HAL_UART_AbortReceive(huart);
+        ResetRxAfterError();
         StartRxDMA();
     }
 }

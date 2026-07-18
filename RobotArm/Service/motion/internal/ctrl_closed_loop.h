@@ -35,6 +35,8 @@ void Ctrl_ClosedLoop_SyncTarget(void);
 
 /** Run one PID iteration (call at 50 Hz) / 杩愯涓€娆?PID 杩�?(50Hz 璋冪�? */
 void Ctrl_ClosedLoop_Update(void);
+bool Ctrl_ClosedLoop_IsRecoveryActive(void);
+bool Ctrl_ClosedLoop_IsRecoveryActive(void);
 
 /** Per-axis state queries / 閫愯酱鐘舵€佹煡�?*/
 bool          Ctrl_ClosedLoop_IsAxisEnabled(int axis);

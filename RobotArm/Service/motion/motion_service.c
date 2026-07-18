@@ -105,6 +105,11 @@ void MotionService_UpdateClosedLoop(void)
     Ctrl_ClosedLoop_Update();
 }
 
+bool MotionService_IsClosedLoopRecoveryActive(void)
+{
+    return Ctrl_ClosedLoop_IsRecoveryActive();
+}
+
 bool MotionService_IsClosedLoopAxisEnabled(int axis)
 {
     return Ctrl_ClosedLoop_IsAxisEnabled(axis);
