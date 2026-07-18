@@ -7,7 +7,7 @@
 
 #include "main.h"
 #include "robot_math.h"
-#include "service/control/ctrl_kinematics.h"
+#include "domain/kinematics.h"
 #include "service/control/ctrl_motion_engine.h"
 
 #include <math.h>
@@ -91,10 +91,10 @@ ErrorCode_t Ctrl_Planner_Init(float start_x, float start_y, float start_z)
 {
     RobotAngles_t angles;
     RobotMotorUnits_t units;
-    ErrorCode_t status = Ctrl_Kinematics_Solve(start_x, start_y, start_z, &angles);
+    ErrorCode_t status = Kinematics_Solve(start_x, start_y, start_z, &angles);
     if (status != ERR_OK) return status;
 
-    Ctrl_Kinematics_ToMotorUnits(&angles, &units);
+    Kinematics_ToMotorUnits(&angles, &units);
     s_cur_x = start_x;
     s_cur_y = start_y;
     s_cur_z = start_z;
@@ -138,10 +138,10 @@ ErrorCode_t Ctrl_Planner_MoveLine(float target_x, float target_y, float target_z
 
     RobotAngles_t target_angles;
     RobotMotorUnits_t target_units;
-    ErrorCode_t status = Ctrl_Kinematics_Solve(target_x, target_y, target_z,
-                                                &target_angles);
+    ErrorCode_t status = Kinematics_Solve(target_x, target_y, target_z,
+                                           &target_angles);
     if (status != ERR_OK) return status;
-    Ctrl_Kinematics_ToMotorUnits(&target_angles, &target_units);
+    Kinematics_ToMotorUnits(&target_angles, &target_units);
 
     uint32_t total_ticks = duration_ms * TICKS_PER_MS;
     if (total_ticks < MIN_FRAME_TICKS) total_ticks = MIN_FRAME_TICKS;
@@ -202,7 +202,7 @@ static bool ValidatePathSlice(void)
         float progress = Smoothstep((float)s_move.validate_index /
                                     (float)s_move.segments);
         RobotAngles_t angles;
-        ErrorCode_t status = Ctrl_Kinematics_Solve(
+        ErrorCode_t status = Kinematics_Solve(
             s_move.start_x + s_move.delta_x * progress,
             s_move.start_y + s_move.delta_y * progress,
             s_move.start_z + s_move.delta_z * progress, &angles);
@@ -243,7 +243,7 @@ static bool GenerateOneFrame(void)
 
     RobotAngles_t angles;
     RobotMotorUnits_t units;
-    ErrorCode_t status = Ctrl_Kinematics_Solve(
+    ErrorCode_t status = Kinematics_Solve(
         s_move.start_x + s_move.delta_x * progress,
         s_move.start_y + s_move.delta_y * progress,
         s_move.start_z + s_move.delta_z * progress, &angles);
@@ -254,7 +254,7 @@ static bool GenerateOneFrame(void)
         s_move.state = PLANNER_IDLE;
         return false;
     }
-    Ctrl_Kinematics_ToMotorUnits(&angles, &units);
+    Kinematics_ToMotorUnits(&angles, &units);
 
     MotionFrame_t frame = {
         .delta_m1 = units.rot_units - s_move.generated_m1,
@@ -319,9 +319,9 @@ ErrorCode_t Ctrl_Planner_TeleopStep(float dx, float dy, float dz)
 
     RobotAngles_t angles;
     RobotMotorUnits_t units;
-    ErrorCode_t status = Ctrl_Kinematics_Solve(tx, ty, tz, &angles);
+    ErrorCode_t status = Kinematics_Solve(tx, ty, tz, &angles);
     if (status != ERR_OK) return status;
-    Ctrl_Kinematics_ToMotorUnits(&angles, &units);
+    Kinematics_ToMotorUnits(&angles, &units);
 
     MotionFrame_t frame = {
         .delta_m1 = units.rot_units - s_planned_m1,

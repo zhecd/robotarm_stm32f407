@@ -9,6 +9,7 @@
 #include "safety_service.h"
 #include "state_service.h"
 #include "device/dev_joint.h"
+#include "platform_time.h"
 #include "robot_home_pose.h"
 #include "robot_math.h"
 #include "error_code.h"
@@ -156,7 +157,7 @@ void Ctrl_ClosedLoop_SyncTarget(void)
 {
     int32_t t[CL_AXIS_COUNT];
     Ctrl_MotionEngine_GetTheorySteps(&t[0], &t[1], &t[2]);
-    uint32_t now = HAL_GetTick();
+    uint32_t now = PlatformTime_NowMs();
 
     for (int i = 0; i < CL_AXIS_COUNT; i++) {
         s_axis[i].target_deg = StepsToDeg(t[i]);
@@ -172,7 +173,7 @@ void Ctrl_ClosedLoop_SyncTarget(void)
 void Ctrl_ClosedLoop_Update(void)
 {
     if (Ctrl_MotionEngine_HasFault()) return;
-    uint32_t now = HAL_GetTick();
+    uint32_t now = PlatformTime_NowMs();
     bool     busy = Ctrl_MotionEngine_IsRunning() || Ctrl_MotionEngine_GetQueueCount() > 0;
 
     /* Always track multi-turn wraps, even when motion engine is busy.

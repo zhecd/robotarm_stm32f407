@@ -18,16 +18,17 @@ message("Build type: " ${CMAKE_BUILD_TYPE})
 add_executable(${CMAKE_PROJECT_NAME})
 add_subdirectory(cmake/stm32cubemx)
 
-set(ROBOTARM_LEGACY_INCLUDE_DIRS
+set(ROBOTARM_PROJECT_INCLUDE_DIRS
     Core/Inc
-    Core/Inc/app
-    Core/Inc/bsp
-    Core/Inc/common
-    Core/Inc/device
-    Core/Inc/driver
-    Core/Inc/os
-    Core/Inc/service
-    Core/Inc/service/control
+    App/include
+    BSP/include
+    Device/include
+    Driver/include
+    Domain/include
+    Domain/include/common
+    Service/include
+    Platform
+    Platform/compat
 )
 
 set(ROBOTARM_HAL_INCLUDE_DIRS
@@ -38,7 +39,7 @@ set(ROBOTARM_HAL_INCLUDE_DIRS
 )
 
 function(robotarm_layer target)
-    target_include_directories(${target} PUBLIC ${ROBOTARM_LEGACY_INCLUDE_DIRS} ${ROBOTARM_HAL_INCLUDE_DIRS})
+    target_include_directories(${target} PUBLIC ${ROBOTARM_PROJECT_INCLUDE_DIRS} ${ROBOTARM_HAL_INCLUDE_DIRS})
     target_compile_definitions(${target} PUBLIC USE_HAL_DRIVER STM32F407xx)
 endfunction()
 
@@ -48,42 +49,41 @@ add_library(arm_platform STATIC
     Platform/platform_time.c
     Platform/platform_delay.c
     Platform/platform_critical.c
-    Core/Src/os/os_adapter.c
+    Platform/compat/os/os_adapter.c
 )
 robotarm_layer(arm_platform)
-target_include_directories(arm_platform PUBLIC Platform)
 
 add_library(arm_bsp STATIC
-    Core/Src/bsp/bsp_led.c
-    Core/Src/bsp/bsp_uart1.c
+    BSP/src/bsp_led.c
+    BSP/src/bsp_uart1.c
 )
 robotarm_layer(arm_bsp)
 
 add_library(arm_driver STATIC
-    Core/Src/driver/drv_as5600.c
-    Core/Src/driver/drv_ps2.c
-    Core/Src/driver/drv_servo.c
-    Core/Src/driver/drv_stepper.c
-    Core/Src/driver/drv_tmc2209.c
+    Driver/src/drv_as5600.c
+    Driver/src/drv_ps2.c
+    Driver/src/drv_servo.c
+    Driver/src/drv_stepper.c
+    Driver/src/drv_tmc2209.c
 )
 robotarm_layer(arm_driver)
 target_link_libraries(arm_driver PUBLIC arm_bsp)
 
 add_library(arm_device STATIC
-    Core/Src/device/dev_gripper.c
-    Core/Src/device/dev_input.c
-    Core/Src/device/dev_joint.c
-    Core/Src/device/dev_limit_switch.c
+    Device/src/dev_gripper.c
+    Device/src/dev_input.c
+    Device/src/dev_joint.c
+    Device/src/dev_limit_switch.c
 )
 robotarm_layer(arm_device)
 target_link_libraries(arm_device PUBLIC arm_driver arm_bsp)
 
-# The first migration pass keeps pure math and existing kinematics together.
-# Trajectory, interpolation and PID are promoted here in the later Domain pass.
+# Domain contains pure robot mathematics and kinematics.  It is kept free of
+# HAL, BSP, Device, Service and App dependencies so it remains host-testable.
 add_library(arm_domain STATIC
     Domain/common/robot_math.c
     Domain/common/robot_home_pose.c
-    Domain/kinematics/ctrl_kinematics.c
+    Domain/kinematics/kinematics.c
 )
 robotarm_layer(arm_domain)
 target_link_libraries(arm_domain PUBLIC arm_platform)
@@ -101,7 +101,6 @@ add_library(arm_service STATIC
     Service/control/ctrl_compensation.c
 )
 robotarm_layer(arm_service)
-target_include_directories(arm_service PUBLIC Service/command Service/motion Service/state Service/safety)
 target_link_libraries(arm_service PUBLIC arm_domain arm_device arm_platform)
 
 add_library(arm_app STATIC
@@ -112,10 +111,9 @@ add_library(arm_app STATIC
     App/app_calibration.c
 )
 robotarm_layer(arm_app)
-target_include_directories(arm_app PUBLIC App)
 target_link_libraries(arm_app PUBLIC arm_service arm_device arm_platform arm_bsp)
 
-target_include_directories(${CMAKE_PROJECT_NAME} PRIVATE App Platform ${ROBOTARM_LEGACY_INCLUDE_DIRS})
+target_include_directories(${CMAKE_PROJECT_NAME} PRIVATE ${ROBOTARM_PROJECT_INCLUDE_DIRS})
 target_link_libraries(${CMAKE_PROJECT_NAME} PRIVATE arm_app stm32cubemx)
 
 find_package(Python3 COMPONENTS Interpreter QUIET)

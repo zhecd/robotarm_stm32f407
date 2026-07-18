@@ -38,6 +38,22 @@ Core / CubeMX → App → Service → Device → Driver → BSP / HAL → Hardwa
 
 笛卡尔轨迹采用协作式处理：规划器先分批校验全部插补点，再分批向运动队列生成轨迹帧。这样既不会在发现中间点不可达后执行部分轨迹，也不会因长距离运动而长时间占用主循环。上电回零和 `M999` 恢复也使用同一非阻塞状态机；回零完成后才启动规划器、闭环和运动定时器。
 
+## 源码目录
+
+```text
+App/                 应用初始化、任务调度、G-code 解析与 PS2 适配
+App/include/         App 层公开接口
+BSP/                 LED、UART 等板级资源及其公开接口
+Device/              关节、夹爪、限位与输入设备抽象
+Driver/              AS5600、TMC2209、STEP/DIR、舵机与 PS2 驱动
+Domain/              运动学、Home Pose 与数学算法
+Service/             命令、运动、安全、状态、回零、夹爪与控制服务
+Platform/            时间、延时、临界区与兼容接口
+Core/                仅保留 STM32CubeMX 生成的启动、外设与 HAL 配置
+```
+
+各层的公开头文件位于本层 `include/` 目录，源文件与其业务子目录位于同一层中。`Core/Inc` 不再承载用户维护的机器人模块。`Service/control` 通过 Platform 访问时间和临界区，不直接调用 HAL 或 CMSIS 临界区原语。夹爪 PWM 的定时器绑定属于 Device 初始化；夹爪服务只保留打开、关闭与空闲停止等设备语义。
+
 ## 关键规则
 
 1. 只有 MotionService 可以进行普通 STEP/DIR 输出。

@@ -10,6 +10,7 @@
 #include "device/dev_input.h"
 #include "device/dev_joint.h"
 #include "device/dev_limit_switch.h"
+#include "device/dev_gripper.h"
 #include "service/svc_gripper.h"
 #include "service/svc_homing.h"
 #include "motion_service.h"
@@ -282,7 +283,7 @@ void App_Init(void)
     BSP_UART1_Init();
     BSP_UART1_SendString("System Boot Up OK!\r\n");
     Dev_Input_Init();
-    Svc_Gripper_Init(&htim2);
+    Dev_Gripper_Init(&htim2, TIM_CHANNEL_2);
 
     HAL_Delay(100U);
     printf("\r\n================================\r\nSystem Boot Up OK! Gcode Mode\r\n================================\r\n");

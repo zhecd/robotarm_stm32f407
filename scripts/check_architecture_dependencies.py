@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import pathlib
+import re
 import sys
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
@@ -12,13 +13,19 @@ RULES = {
 }
 
 
+def strip_comments(source: str) -> str:
+    """Keep dependency checks focused on C tokens instead of documentation."""
+    without_block_comments = re.sub(r"/\*.*?\*/", "", source, flags=re.DOTALL)
+    return re.sub(r"//.*$", "", without_block_comments, flags=re.MULTILINE)
+
+
 def main() -> int:
     violations: list[str] = []
     for directory, forbidden in RULES.items():
         if not directory.exists():
             continue
         for path in directory.rglob("*.[ch]"):
-            text = path.read_text(encoding="utf-8", errors="ignore")
+            text = strip_comments(path.read_text(encoding="utf-8", errors="ignore"))
             for token in forbidden:
                 if token in text:
                     violations.append(f"{path.relative_to(ROOT)}: forbidden dependency `{token}`")

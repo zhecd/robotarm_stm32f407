@@ -1,9 +1,9 @@
 /**
- * @file    ctrl_kinematics.c
+ * @file    kinematics.c
  * @brief   Inverse kinematics implementation for parallel-gripper SCARA arm. / 楠炲疇顢戞径鍦焻 SCARA 閺堢儤顫懛鍌炩偓鍡氱箥閸斻劌顒熺€圭偟骞囬妴? * @ingroup control
  */
 
-#include "service/control/ctrl_kinematics.h"
+#include "domain/kinematics.h"
 #include "robot_math.h"
 #include <stdbool.h>
 
@@ -11,7 +11,7 @@
 #define M_PI  3.14159265358979323846f
 #endif
 
-void Ctrl_Kinematics_Init(void)
+void Kinematics_Init(void)
 {
     /* No pre-computation needed for this structure. / 濮濄倗绮ㄩ弸鍕￥闂団偓妫板嫯顓哥粻妞尖偓?*/
 }
@@ -28,7 +28,7 @@ static bool AnglesWithinJointLimits(const RobotAngles_t *angles)
 #endif
 }
 
-ErrorCode_t Ctrl_Kinematics_Solve(float x, float y, float z, RobotAngles_t *angles)
+ErrorCode_t Kinematics_Solve(float x, float y, float z, RobotAngles_t *angles)
 {
     if (!angles) return ERR_NULL_PARAM;
     if (!isfinite(x) || !isfinite(y) || !isfinite(z)) return ERR_OUT_OF_RANGE;
@@ -74,7 +74,7 @@ ErrorCode_t Ctrl_Kinematics_Solve(float x, float y, float z, RobotAngles_t *angl
     return ERR_OK;
 }
 
-void Ctrl_Kinematics_ToMotorUnits(const RobotAngles_t *angles, RobotMotorUnits_t *units)
+void Kinematics_ToMotorUnits(const RobotAngles_t *angles, RobotMotorUnits_t *units)
 {
     if (!angles || !units) return;
 

@@ -8,6 +8,7 @@
 #include "device/dev_input.h"
 #include "command_service.h"
 #include "motion_service.h"
+#include "platform_time.h"
 #include "robot_config.h"
 #include <stdio.h>
 #include <stdlib.h>
@@ -29,16 +30,17 @@ static void StopMotion(void)
 
 void App_Teleop_Init(void)
 {
-    s_last_poll_ms  = HAL_GetTick();
+    s_last_poll_ms  = PlatformTime_NowMs();
     s_fault_reported = false;
     printf("App_Teleop initialized.\r\n");
 }
 
 void App_Teleop_Task(void)
 {
-    if ((HAL_GetTick() - s_last_poll_ms) < PS2_POLL_INTERVAL_MS)
+    uint32_t now = PlatformTime_NowMs();
+    if ((now - s_last_poll_ms) < PS2_POLL_INTERVAL_MS)
         return;
-    s_last_poll_ms = HAL_GetTick();
+    s_last_poll_ms = now;
 
     DevInputState_t ps2 = {0};
     bool valid = Dev_Input_Read(&ps2);

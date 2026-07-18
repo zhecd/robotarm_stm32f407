@@ -7,6 +7,8 @@
 #include "service/control/ctrl_motion_engine.h"
 #include "device/dev_joint.h"
 #include "device/dev_limit_switch.h"
+#include "platform_critical.h"
+#include "platform_time.h"
 #include "safety_service.h"
 #include "robot_config.h"
 #include <stdio.h>
@@ -70,9 +72,9 @@ static bool PopFrame(MotionFrame_t *out)
 
 void Ctrl_MotionEngine_Clear(void)
 {
-    __disable_irq();
+    PlatformCriticalState_t state = PlatformCritical_Enter();
     s_tail = s_head;
-    __enable_irq();
+    PlatformCritical_Exit(state);
 }
 
 void Ctrl_MotionEngine_EmergencyStop(void)
@@ -82,7 +84,7 @@ void Ctrl_MotionEngine_EmergencyStop(void)
 
 void Ctrl_MotionEngine_EmergencyStopWithReason(MotionFaultReason_t reason)
 {
-    __disable_irq();
+    PlatformCriticalState_t state = PlatformCritical_Enter();
     s_head = 0;
     s_tail = 0;
     s_running = false;
@@ -90,7 +92,7 @@ void Ctrl_MotionEngine_EmergencyStopWithReason(MotionFaultReason_t reason)
     s_acc_m1 = s_acc_m2 = s_acc_m3 = 0;
     s_faulted = true;
     s_fault_reason = reason;
-    __enable_irq();
+    PlatformCritical_Exit(state);
 }
 
 void Ctrl_MotionEngine_EnableLimitMonitoring(bool enabled)
@@ -102,25 +104,23 @@ void Ctrl_MotionEngine_NotifyLimitSwitch(uint16_t gpio_pin)
 {
     if (!s_limit_monitoring_enabled) return;
     s_pending_limit_pins |= gpio_pin;
-    s_limit_event_ms = HAL_GetTick();
+    s_limit_event_ms = PlatformTime_NowMs();
 }
 
 void Ctrl_MotionEngine_ServiceSafety(void)
 {
-    uint32_t primask = __get_PRIMASK();
-    __disable_irq();
+    PlatformCriticalState_t state = PlatformCritical_Enter();
     uint16_t pending = s_pending_limit_pins;
     uint32_t event_ms = s_limit_event_ms;
-    __set_PRIMASK(primask);
+    PlatformCritical_Exit(state);
 
-    if (pending == 0U || (HAL_GetTick() - event_ms) < 10U) return;
+    if (pending == 0U || (PlatformTime_NowMs() - event_ms) < 10U) return;
 
     /* Atomically consume the snapshot; events on other pins that arrive
        concurrently remain pending for the next service cycle. */
-    primask = __get_PRIMASK();
-    __disable_irq();
+    state = PlatformCritical_Enter();
     s_pending_limit_pins &= (uint16_t)~pending;
-    __set_PRIMASK(primask);
+    PlatformCritical_Exit(state);
 
     bool active = Dev_LimitSwitch_IsPinTriggered(pending & M1_STOP_Pin) ||
                   Dev_LimitSwitch_IsPinTriggered(pending & M2_STOP_Pin) ||
@@ -167,20 +167,20 @@ void Ctrl_MotionEngine_GetTheorySteps(int32_t *m1, int32_t *m2, int32_t *m3)
 
 void Ctrl_MotionEngine_ResetTheorySteps(void)
 {
-    __disable_irq();
+    PlatformCriticalState_t state = PlatformCritical_Enter();
     s_theory_m1 = 0;
     s_theory_m2 = 0;
     s_theory_m3 = 0;
-    __enable_irq();
+    PlatformCritical_Exit(state);
 }
 
 void Ctrl_MotionEngine_AdjustTheorySteps(int32_t dm1, int32_t dm2, int32_t dm3)
 {
-    __disable_irq();
+    PlatformCriticalState_t state = PlatformCritical_Enter();
     s_theory_m1 += dm1;
     s_theory_m2 += dm2;
     s_theory_m3 += dm3;
-    __enable_irq();
+    PlatformCritical_Exit(state);
 }
 
 /* 閳光偓閳光偓 TIM6 ISR: Bresenham step generation / TIM6 娑擃厽鏌? Bresenham 濮濄儴绻橀悽鐔稿灇 閳光偓閳光偓 */
