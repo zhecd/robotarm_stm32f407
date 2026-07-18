@@ -19,7 +19,7 @@
 extern "C" {
 #endif
 
-#if 0 /* Moved to Service/include/command_types.h. */
+#if 0 /* Moved to RobotArm/Service/include/command_types.h. */
 typedef enum {
     GCMD_UNKNOWN = -1,      /* Unknown command / 閺堫亞鐓￠幐鍥︽姢 */
     GCMD_G0 = 0,            /* Rapid linear move / 韫囶偊鈧喓娲跨痪璺ㄐ╅崝?*/

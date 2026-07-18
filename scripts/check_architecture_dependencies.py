@@ -7,10 +7,11 @@ import re
 import sys
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
+ROBOTARM_ROOT = ROOT / "RobotArm"
 RULES = {
-    ROOT / "Domain": ("stm32f4xx", "HAL_", "CMSIS", "FreeRTOS", "Platform/", "BSP/", "Device/", "Service/", "App/"),
-    ROOT / "Service": ("HAL_", "GPIO_TypeDef", "TIM_HandleTypeDef", "UART_HandleTypeDef", "__disable_irq"),
-    ROOT / "App": ("stm32f4xx", "HAL_", "GPIO_TypeDef", "TIM_HandleTypeDef",
+    ROBOTARM_ROOT / "Domain": ("stm32f4xx", "HAL_", "CMSIS", "FreeRTOS", "Platform/", "BSP/", "Device/", "Service/", "App/"),
+    ROBOTARM_ROOT / "Service": ("HAL_", "GPIO_TypeDef", "TIM_HandleTypeDef", "UART_HandleTypeDef", "__disable_irq"),
+    ROBOTARM_ROOT / "App": ("stm32f4xx", "HAL_", "GPIO_TypeDef", "TIM_HandleTypeDef",
                     "UART_HandleTypeDef", "bsp/", "device/", "driver/"),
 }
 
@@ -27,9 +28,9 @@ def main() -> int:
         if not directory.exists():
             continue
         for path in directory.rglob("*.[ch]"):
-            # App/adapters is the explicit boundary that translates CubeMX,
+            # RobotArm/App/adapters is the explicit boundary that translates CubeMX,
             # BSP and Device details into application-facing operations.
-            if directory == ROOT / "App" and "adapters" in path.relative_to(directory).parts:
+            if directory == ROBOTARM_ROOT / "App" and "adapters" in path.relative_to(directory).parts:
                 continue
             text = strip_comments(path.read_text(encoding="utf-8", errors="ignore"))
             for token in forbidden:

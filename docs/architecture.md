@@ -41,32 +41,34 @@ Core / CubeMX → App → Service → Device → Driver → BSP / HAL → Hardwa
 ## 源码目录
 
 ```text
-App/                 应用初始化、任务调度、G-code 解析与 PS2 适配
-App/include/         App 层公开接口
-BSP/                 LED、UART 等板级资源及其公开接口
-Device/              关节、夹爪、限位与输入设备抽象
-Driver/              AS5600、TMC2209、STEP/DIR、舵机与 PS2 驱动
-Domain/              运动学、Home Pose 与数学算法
-Service/             命令、运动、安全、状态、回零、夹爪与控制服务
-Platform/            时间、延时、临界区与兼容接口
-Core/                仅保留 STM32CubeMX 生成的启动、外设与 HAL 配置
+RobotArm/             全部手写机械臂固件代码
+├─ App/               应用初始化、任务调度、G-code 解析与 PS2 适配
+├─ BSP/               LED、UART 等板级资源及其公开接口
+├─ Device/            关节、夹爪、限位与输入设备抽象
+├─ Driver/            AS5600、TMC2209、STEP/DIR、舵机与 PS2 驱动
+├─ Domain/            运动学、Home Pose 与数学算法
+├─ Service/           命令、运动、安全、状态、回零、夹爪与控制服务
+└─ Platform/          时间、延时、临界区与兼容接口
+
+Core/                 仅保留 STM32CubeMX 生成的启动、外设与 HAL 配置
+Drivers/              STM32 HAL 与 CMSIS 代码
 ```
 
-各层的公开头文件位于本层 `include/` 目录，源文件与其业务子目录位于同一层中。`Core/Inc` 不再承载用户维护的机器人模块。`Service/motion/internal` 通过 Platform 访问时间和临界区，不直接调用 HAL 或 CMSIS 临界区原语。夹爪 PWM 的定时器绑定属于 Device 初始化；夹爪服务只保留打开、关闭与空闲停止等设备语义。
+各层的公开头文件位于本层 `include/` 目录，源文件与其业务子目录位于同一层中。`RobotArm/` 是所有用户维护固件代码的唯一根目录；`Core/Inc` 不再承载用户维护的机器人模块。`RobotArm/Service/motion/internal` 通过 Platform 访问时间和临界区，不直接调用 HAL 或 CMSIS 临界区原语。夹爪 PWM 的定时器绑定属于 Device 初始化；夹爪服务只保留打开、关闭与空闲停止等设备语义。
 
 ## 构建边界与内部实现
 
 本工程不再为所有目标统一导出全部头文件路径。CMake 为 `arm_platform`、`arm_bsp`、`arm_driver`、`arm_device`、`arm_domain`、`arm_service`、`arm_app` 和 `arm_app_adapters` 分别声明包含目录与链接依赖。编译阶段因此能够发现跨层包含，而不是依赖代码审查才发现问题。
 
-`App/` 进一步分为应用逻辑与硬件适配两部分：
+`RobotArm/App/` 进一步分为应用逻辑与硬件适配两部分：
 
-- `App/*.c` 只负责启动顺序、任务调度、G-code/PS2 协议适配和服务调用；不包含 STM32 句柄、HAL 或 Device 头文件。
-- `App/adapters/` 是 App 与硬件边界。`app_hardware_adapter.c` 将 LED、UART、关节、限位开关、PS2 与夹爪设备接口转换为 App 所需的操作；`app_isr_adapter.c` 将 TIM6 和 EXTI 中断转换为 MotionService 调用或模式切换事件。
-- `Service/motion/internal/` 保存 `ctrl_motion_engine`、`ctrl_planner`、`ctrl_closed_loop` 和 `ctrl_compensation` 等私有实现。外部模块只能包含 `motion_service.h` 和 `motion_types.h`，不能直接调用内部控制器。
+- `RobotArm/App/*.c` 只负责启动顺序、任务调度、G-code/PS2 协议适配和服务调用；不包含 STM32 句柄、HAL 或 Device 头文件。
+- `RobotArm/App/adapters/` 是 App 与硬件边界。`app_hardware_adapter.c` 将 LED、UART、关节、限位开关、PS2 与夹爪设备接口转换为 App 所需的操作；`app_isr_adapter.c` 将 TIM6 和 EXTI 中断转换为 MotionService 调用或模式切换事件。
+- `RobotArm/Service/motion/internal/` 保存 `ctrl_motion_engine`、`ctrl_planner`、`ctrl_closed_loop` 和 `ctrl_compensation` 等私有实现。外部模块只能包含 `motion_service.h` 和 `motion_types.h`，不能直接调用内部控制器。
 
-G-code 语法解析仍位于 App，而解析后的 `GCodeFrame_t` 已放入 `Service/include/command_types.h`。这使 CommandService 不再反向包含 App 头文件：App 负责把文本转换为命令帧，Service 负责解释命令帧对应的机器人动作。
+G-code 语法解析仍位于 App，而解析后的 `GCodeFrame_t` 已放入 `RobotArm/Service/include/command_types.h`。这使 CommandService 不再反向包含 App 头文件：App 负责把文本转换为命令帧，Service 负责解释命令帧对应的机器人动作。
 
-当前与硬件有关的入口均集中在 `Core/` 和 `App/adapters/`；`Domain/` 保持为不依赖 STM32 的数学与运动学代码。这样既保留了机械臂项目的 Device/Driver 抽象，也形成了可独立检查的编译依赖边界。
+当前与硬件有关的入口均集中在 `Core/` 和 `RobotArm/App/adapters/`；`RobotArm/Domain/` 保持为不依赖 STM32 的数学与运动学代码。这样既保留了机械臂项目的 Device/Driver 抽象，也形成了可独立检查的编译依赖边界。
 
 ## 关键规则
 
