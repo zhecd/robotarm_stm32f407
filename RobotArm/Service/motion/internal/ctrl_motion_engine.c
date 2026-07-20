@@ -9,7 +9,6 @@
 #include "device/dev_limit_switch.h"
 #include "platform_critical.h"
 #include "platform_time.h"
-#include "safety_service.h"
 #include "robot_config.h"
 #include <stdio.h>
 #include <stdlib.h>
@@ -126,7 +125,7 @@ void Ctrl_MotionEngine_ServiceSafety(void)
                   Dev_LimitSwitch_IsPinTriggered(pending & M2_STOP_Pin) ||
                   Dev_LimitSwitch_IsPinTriggered(pending & M3_STOP_Pin);
     if (active)
-        SafetyService_ReportLimitSwitch();
+        Ctrl_MotionEngine_EmergencyStopWithReason(MOTION_FAULT_LIMIT_SWITCH);
 }
 
 bool Ctrl_MotionEngine_HasFault(void)

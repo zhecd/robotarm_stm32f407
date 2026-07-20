@@ -1,34 +1,33 @@
 # 分层依赖规则
 
-## 主调用链
+## 允许的依赖方向
 
 ```text
-App → Service → Device → BSP/HAL → Hardware
+App -> Service -> Device -> BSP / Driver -> HAL
+             -> Algorithm
+             -> Platform
 ```
 
-`Algorithm` 和 `Platform` 是侧向能力：Algorithm 提供无硬件依赖的机器人算法，Platform 提供时间、临界区和调度基础能力。两者不属于主调用链中的额外业务层。
+`Algorithm` 和 `Platform` 是可复用的侧向能力。它们不承担命令仲裁、设备控制或安全状态等业务职责。
 
-## 禁止依赖
+## 关键边界
 
-| 模块 | 禁止直接依赖 |
-|---|---|
-| Algorithm | `stm32f4xx`、`HAL_`、CMSIS、FreeRTOS、Platform、BSP、Device、Service、App |
-| Service | `HAL_`、GPIO/TIM/UART 句柄、GPIO 引脚宏、`__disable_irq()` |
-| Device | G-code、XYZ 轨迹、回零策略、故障锁存和串口打印 |
-| BSP | 关节名称、Home Pose、XYZ、G-code 和安全故障等业务语义 |
+| 调用方 | 可使用的公开接口 | 禁止直接使用的接口 |
+|---|---|---|
+| CommandService | `planning_service.h`、`motion_service.h`、`safety_service.h` | `planning/internal/ctrl_planner.h` |
+| PlanningService | `planning/internal/ctrl_planner.h` | Motion internal 头文件 |
+| Ctrl_Planner | `motion_service.h` | `motion/internal/ctrl_motion_engine.h` |
+| MotionService | Motion internal 头文件、`safety_service.h` | BSP 或 Device 的公开细节以外的上层服务 |
+| SafetyService | `platform_critical.h` | `motion_service.h` |
+| 普通 App 文件 | Service、Algorithm、Platform 的公开头文件 | `internal/`、HAL、BSP、Device |
+| App adapters | App、Service、BSP、Device、CubeMX/HAL | 业务状态的重复存储 |
 
-## 编译期边界
+## 故障处理规则
 
-本工程使用按目标划分的 CMake 包含目录，而不是把全部目录添加到每一个目标。所有手写代码位于 `RobotArm/`。`arm_app` 只能看到 App、Service、Algorithm 和 Platform 的公开接口；硬件相关头文件仅提供给 `arm_app_adapters`。`arm_service` 可以使用 Device、Algorithm 和 Platform 的公开接口，但运动控制内部头文件仅在 `RobotArm/Service/motion/internal/` 中可见。
+1. Motion internal 检测到限位、编码器、软限位、队列超时或闭环发散时，必须先停止执行器。
+2. `MotionService` 通过 `MotionService_TakeFaultEvent()` 向 App 交付故障原因。
+3. AppRuntime 负责将故障原因映射为 `SafetyService_Report...()` 调用。
+4. `SafetyService` 只锁存或清除安全状态，不直接操作运动执行器。
+5. 回零成功后，AppRuntime 依次恢复 Safety 状态和 Motion 故障状态。
 
-`scripts/check_architecture_dependencies.py` 会额外检查 `RobotArm/Algorithm`、`RobotArm/Service` 与普通 App 源文件。`RobotArm/App/adapters` 是唯一允许包含 HAL、BSP 或 Device 头文件的 App 子目录。
-
-因此，新增模块时应先判断其对外接口属于哪一层，再将实现文件加入 `RobotArm/` 下的对应目录与 CMake 目标。若某文件必须访问 STM32 句柄、GPIO 引脚、芯片寄存器、通信时序或 HAL 回调，应放在 BSP、`BSP/driver`、Device 或 `RobotArm/App/adapters/`，而不应放入普通 App、Service 或 Algorithm 源文件。
-
-## 调用规则
-
-1. App 负责初始化、协作式任务调度、ISR 分发和输入/输出适配，不保存业务状态。
-2. Service 负责业务状态与业务决策，并通过 Device 操作机器人部件。
-3. Device 只发布硬件事实和执行硬件动作，不决定运动许可或故障处置。
-4. BSP 是 STM32 外设句柄、GPIO 映射和 DMA 资源的唯一归属；`BSP/driver` 封装 AS5600、TMC2209、STEP/DIR、PWM 舵机与 PS2 的芯片协议和时序。
-5. 普通 STEP/DIR 输出最终只能从 MotionService 发出。故障锁存和故障解除最终只能由 SafetyService 完成。
+这些规则由 `scripts/check_architecture_dependencies.py` 进行静态检查。

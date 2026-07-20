@@ -70,9 +70,8 @@ void Drv_Stepper_Init(void)
     gpio.Pin = M3_DIR_Pin;   HAL_GPIO_Init(M3_DIR_GPIO_Port, &gpio);
 }
 
-bool Drv_Stepper_Enable(StepperDevice_t *motor, bool enable)
+bool Drv_Stepper_EnableAll(bool enable)
 {
-    if (!motor) return false;
     HAL_GPIO_WritePin(EN_GPIO_Port, EN_Pin,
                       enable ? GPIO_PIN_RESET : GPIO_PIN_SET);
     return true;

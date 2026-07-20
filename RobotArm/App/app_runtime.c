@@ -34,6 +34,7 @@ static AppBootState_t s_boot_state = APP_BOOT_HOMING;
 static bool s_homing_is_recovery = false;
 
 static void App_StartHoming(bool recovery);
+static void App_ProcessMotionFaults(void);
 
 void AppRuntime_RequestModeSwitch(void)
 {
@@ -85,6 +86,7 @@ static void App_ClosedLoopTask(void)
     if ((now - last_tick) < 20U) return;
     last_tick = now;
     MotionService_UpdateClosedLoop();
+    App_ProcessMotionFaults();
 }
 
 static void App_ReportM114(void)
@@ -229,6 +231,34 @@ static const char *App_MotionFaultText(MotionFaultReason_t reason)
     }
 }
 
+/* Motion owns immediate stopping.  App translates its delivered fault event
+ * into the safety state used by the command and recovery layers. */
+static void App_ProcessMotionFaults(void)
+{
+    MotionFaultReason_t reason;
+    while (MotionService_TakeFaultEvent(&reason)) {
+        switch (reason) {
+        case MOTION_FAULT_LIMIT_SWITCH:
+            SafetyService_ReportLimitSwitch();
+            break;
+        case MOTION_FAULT_ENCODER:
+            SafetyService_ReportEncoderFailure();
+            break;
+        case MOTION_FAULT_SOFT_LIMIT:
+            SafetyService_ReportSoftLimit();
+            break;
+        case MOTION_FAULT_QUEUE_TIMEOUT:
+            SafetyService_ReportQueueTimeout();
+            break;
+        case MOTION_FAULT_CONTROL_DIVERGENCE:
+            SafetyService_ReportControlDivergence();
+            break;
+        default:
+            break;
+        }
+    }
+}
+
 static void App_StartHoming(bool recovery)
 {
     s_wait_for_motion = false;
@@ -260,6 +290,7 @@ static bool App_FinalizeAfterHoming(void)
 
     SafetyService_MarkHomed();
     SafetyService_ClearAfterSuccessfulHoming();
+    MotionService_ClearFault();
     MotionService_SetLimitMonitoring(true);
     printf("# [HomePose] XYZ=%.1f,%.1f,%.1f J=%.1f,%.1f,%.1f\r\n",
            g_robot_home_pose.x_mm, g_robot_home_pose.y_mm, g_robot_home_pose.z_mm,
@@ -313,6 +344,7 @@ void App_RunOnce(void)
     if (s_boot_state == APP_BOOT_FAILED) return;
 
     MotionService_ServiceSafety();
+    App_ProcessMotionFaults();
     App_GCodeExec_Service();
     ErrorCode_t queued_result;
     while (App_GCodeExec_TakeQueuedMoveResult(&queued_result)) {

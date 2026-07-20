@@ -46,10 +46,7 @@ void Dev_Joint_ConfigureDrivers(UART_HandleTypeDef *driver_uart)
 
 void Dev_Joint_EnableAll(bool enable)
 {
-    for (DevJointId_t joint = DEV_JOINT_M1; joint < DEV_JOINT_COUNT; joint++) {
-        StepperDevice_t *stepper = GetStepper(joint);
-        if (stepper != NULL) (void)Drv_Stepper_Enable(stepper, enable);
-    }
+    (void)Drv_Stepper_EnableAll(enable);
 }
 
 bool Dev_Joint_SetDirection(DevJointId_t joint, bool clockwise)

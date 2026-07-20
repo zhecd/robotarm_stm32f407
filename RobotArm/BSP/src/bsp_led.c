@@ -5,7 +5,6 @@
  */
 
 #include "bsp/bsp_led.h"
-#include "gpio.h"
 
 /* LED software state array, initialized to all-off / LED 杞欢鐘舵€佹暟�? 鍒濆鍏ㄧ伃 */
 static LedState_t        s_led_states[LED_COUNT] = {LED_OFF, LED_OFF, LED_OFF, LED_OFF};
@@ -14,8 +13,7 @@ static GPIO_TypeDef     *const s_led_ports[LED_COUNT] = {LED0_GPIO_Port, LED1_GP
 
 void BSP_LED_Init(void)
 {
-    MX_GPIO_Init();
-    for (int i = 0; i < LED_COUNT; i++) {
+    for (uint8_t i = 0U; i < LED_COUNT; i++) {
         s_led_states[i] = LED_OFF;
         HAL_GPIO_WritePin(s_led_ports[i], s_led_pins[i], GPIO_PIN_SET);
     }

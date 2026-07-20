@@ -37,16 +37,18 @@ void Drv_Servo_SetAngle(ServoDevice_t *grp, float angle)
 
 void Drv_Servo_Open(ServoDevice_t *grp)
 {
+    if (!grp) return;
     if (grp->state != SERVO_STATE_OPEN) {
-        Drv_Servo_SetAngle(grp, GRIPPER_ANGLE_CLOSE);
+        Drv_Servo_SetAngle(grp, GRIPPER_OPEN_ANGLE_DEG);
         grp->state = SERVO_STATE_OPEN;
     }
 }
 
 void Drv_Servo_Close(ServoDevice_t *grp)
 {
+    if (!grp) return;
     if (grp->state != SERVO_STATE_CLOSE) {
-        Drv_Servo_SetAngle(grp, GRIPPER_ANGLE_OPEN);
+        Drv_Servo_SetAngle(grp, GRIPPER_CLOSE_ANGLE_DEG);
         grp->state = SERVO_STATE_CLOSE;
     }
 }

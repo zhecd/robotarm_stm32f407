@@ -1,33 +1,8 @@
 #include "safety_service.h"
 
 #include "platform_critical.h"
-#include "motion_service.h"
 
 static SafetyServiceStatus_t s_status;
-
-static MotionFaultReason_t ToLegacyReason(SafetyFault_t fault)
-{
-    switch (fault) {
-    case SAFETY_FAULT_LIMIT_SWITCH: return MOTION_FAULT_LIMIT_SWITCH;
-    case SAFETY_FAULT_ENCODER: return MOTION_FAULT_ENCODER;
-    case SAFETY_FAULT_SOFT_LIMIT: return MOTION_FAULT_SOFT_LIMIT;
-    case SAFETY_FAULT_QUEUE_TIMEOUT: return MOTION_FAULT_QUEUE_TIMEOUT;
-    case SAFETY_FAULT_CONTROL_DIVERGENCE: return MOTION_FAULT_CONTROL_DIVERGENCE;
-    default: return MOTION_FAULT_NONE;
-    }
-}
-
-static SafetyFault_t FromLegacyReason(MotionFaultReason_t reason)
-{
-    switch (reason) {
-    case MOTION_FAULT_LIMIT_SWITCH: return SAFETY_FAULT_LIMIT_SWITCH;
-    case MOTION_FAULT_ENCODER: return SAFETY_FAULT_ENCODER;
-    case MOTION_FAULT_SOFT_LIMIT: return SAFETY_FAULT_SOFT_LIMIT;
-    case MOTION_FAULT_QUEUE_TIMEOUT: return SAFETY_FAULT_QUEUE_TIMEOUT;
-    case MOTION_FAULT_CONTROL_DIVERGENCE: return SAFETY_FAULT_CONTROL_DIVERGENCE;
-    default: return SAFETY_FAULT_INTERNAL;
-    }
-}
 
 static void LatchFault(SafetyFault_t fault)
 {
@@ -42,8 +17,6 @@ static void LatchFault(SafetyFault_t fault)
     }
     PlatformCritical_Exit(state);
 
-    if (!already_latched)
-        MotionService_StopForSafety(ToLegacyReason(fault));
 }
 
 void SafetyService_Init(void)
@@ -64,12 +37,6 @@ void SafetyService_ReportEncoderFailure(void) { LatchFault(SAFETY_FAULT_ENCODER)
 void SafetyService_ReportSoftLimit(void) { LatchFault(SAFETY_FAULT_SOFT_LIMIT); }
 void SafetyService_ReportQueueTimeout(void) { LatchFault(SAFETY_FAULT_QUEUE_TIMEOUT); }
 void SafetyService_ReportControlDivergence(void) { LatchFault(SAFETY_FAULT_CONTROL_DIVERGENCE); }
-
-void SafetyService_ObserveLegacyMotionFault(void)
-{
-    if (MotionService_HasFault())
-        LatchFault(FromLegacyReason(MotionService_GetFaultReason()));
-}
 
 bool SafetyService_IsMotionAllowed(void)
 {
@@ -119,5 +86,4 @@ void SafetyService_ClearAfterSuccessfulHoming(void)
         s_status.generation++;
     }
     PlatformCritical_Exit(state);
-    if (homed) MotionService_ClearFault();
 }

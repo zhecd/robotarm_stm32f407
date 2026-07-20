@@ -12,7 +12,13 @@ RULES = {
     ROBOTARM_ROOT / "Algorithm": ("stm32f4xx", "HAL_", "CMSIS", "FreeRTOS", "Platform/", "BSP/", "Device/", "Service/", "App/"),
     ROBOTARM_ROOT / "Service": ("HAL_", "GPIO_TypeDef", "TIM_HandleTypeDef", "UART_HandleTypeDef", "__disable_irq"),
     ROBOTARM_ROOT / "App": ("stm32f4xx", "HAL_", "GPIO_TypeDef", "TIM_HandleTypeDef",
-                    "UART_HandleTypeDef", "bsp/", "device/", "driver/"),
+                    "UART_HandleTypeDef", "bsp/", "device/", "driver/", "internal/"),
+}
+
+FILE_RULES = {
+    ROBOTARM_ROOT / "Service" / "command" / "command_service.c": ("ctrl_planner.h",),
+    ROBOTARM_ROOT / "Service" / "planning" / "internal" / "ctrl_planner.c": ("ctrl_motion_engine.h",),
+    ROBOTARM_ROOT / "Service" / "safety" / "safety_service.c": ("motion_service.h",),
 }
 
 
@@ -36,6 +42,13 @@ def main() -> int:
             for token in forbidden:
                 if token in text:
                     violations.append(f"{path.relative_to(ROOT)}: forbidden dependency `{token}`")
+    for path, forbidden in FILE_RULES.items():
+        if not path.exists():
+            continue
+        text = strip_comments(path.read_text(encoding="utf-8", errors="ignore"))
+        for token in forbidden:
+            if token in text:
+                violations.append(f"{path.relative_to(ROOT)}: forbidden dependency `{token}`")
     if violations:
         print("Architecture dependency check failed:")
         print("\n".join(violations))

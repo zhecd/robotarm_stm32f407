@@ -3,10 +3,28 @@
 #include "safety_service.h"
 #include "ctrl_motion_engine.h"
 #include "ctrl_closed_loop.h"
+#include "platform_critical.h"
+
+static volatile bool s_fault_event_pending;
+static volatile MotionFaultReason_t s_fault_event_reason;
+
+static void PublishFaultEventIfNeeded(void)
+{
+    if (!Ctrl_MotionEngine_HasFault()) return;
+
+    PlatformCriticalState_t state = PlatformCritical_Enter();
+    if (!s_fault_event_pending) {
+        s_fault_event_reason = Ctrl_MotionEngine_GetFaultReason();
+        s_fault_event_pending = true;
+    }
+    PlatformCritical_Exit(state);
+}
 
 void MotionService_Init(void)
 {
     Ctrl_MotionEngine_Init();
+    s_fault_event_pending = false;
+    s_fault_event_reason = MOTION_FAULT_NONE;
 }
 
 bool MotionService_SubmitFrame(const MotionFrame_t *frame)
@@ -22,7 +40,7 @@ void MotionService_OnStepTickFromISR(void)
 void MotionService_ServiceSafety(void)
 {
     Ctrl_MotionEngine_ServiceSafety();
-    SafetyService_ObserveLegacyMotionFault();
+    PublishFaultEventIfNeeded();
 }
 
 bool MotionService_IsRunning(void)
@@ -60,9 +78,10 @@ void MotionService_ClearQueuedFrames(void)
     Ctrl_MotionEngine_Clear();
 }
 
-void MotionService_StopForSafety(MotionFaultReason_t reason)
+void MotionService_AbortForFault(MotionFaultReason_t reason)
 {
     Ctrl_MotionEngine_EmergencyStopWithReason(reason);
+    PublishFaultEventIfNeeded();
 }
 
 void MotionService_SetLimitMonitoring(bool enabled)
@@ -88,6 +107,22 @@ bool MotionService_HasFault(void)
 void MotionService_ClearFault(void)
 {
     Ctrl_MotionEngine_ClearFault();
+    PlatformCriticalState_t state = PlatformCritical_Enter();
+    s_fault_event_pending = false;
+    s_fault_event_reason = MOTION_FAULT_NONE;
+    PlatformCritical_Exit(state);
+}
+
+bool MotionService_TakeFaultEvent(MotionFaultReason_t *out_reason)
+{
+    PlatformCriticalState_t state = PlatformCritical_Enter();
+    bool pending = s_fault_event_pending;
+    if (pending) {
+        if (out_reason) *out_reason = s_fault_event_reason;
+        s_fault_event_pending = false;
+    }
+    PlatformCritical_Exit(state);
+    return pending;
 }
 
 void MotionService_InitClosedLoop(void)
@@ -103,6 +138,7 @@ void MotionService_SyncClosedLoopTarget(void)
 void MotionService_UpdateClosedLoop(void)
 {
     Ctrl_ClosedLoop_Update();
+    PublishFaultEventIfNeeded();
 }
 
 bool MotionService_IsClosedLoopRecoveryActive(void)

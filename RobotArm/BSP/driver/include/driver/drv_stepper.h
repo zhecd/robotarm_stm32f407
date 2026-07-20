@@ -36,7 +36,8 @@ typedef struct {
 } StepperDevice_t;
 
 void Drv_Stepper_Init(void);
-bool Drv_Stepper_Enable(StepperDevice_t *motor, bool enable);
+/* All axes share the same active-low EN pin on this board. */
+bool Drv_Stepper_EnableAll(bool enable);
 bool Drv_Stepper_SetDir(StepperDevice_t *motor, StepperDirection_t dir);
 bool Drv_Stepper_Step(StepperDevice_t *motor);
 

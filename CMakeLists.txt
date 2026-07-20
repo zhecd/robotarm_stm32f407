@@ -85,13 +85,14 @@ target_include_directories(arm_algorithm PUBLIC ${ROBOTARM_SOURCE_ROOT}/Algorith
 
 add_library(arm_service STATIC
     ${ROBOTARM_SOURCE_ROOT}/Service/command/command_service.c
+    ${ROBOTARM_SOURCE_ROOT}/Service/planning/planning_service.c
     ${ROBOTARM_SOURCE_ROOT}/Service/motion/motion_service.c
     ${ROBOTARM_SOURCE_ROOT}/Service/state/state_service.c
     ${ROBOTARM_SOURCE_ROOT}/Service/safety/safety_service.c
     ${ROBOTARM_SOURCE_ROOT}/Service/gripper/svc_gripper.c
     ${ROBOTARM_SOURCE_ROOT}/Service/homing/svc_homing.c
     ${ROBOTARM_SOURCE_ROOT}/Service/motion/internal/ctrl_motion_engine.c
-    ${ROBOTARM_SOURCE_ROOT}/Service/motion/internal/ctrl_planner.c
+    ${ROBOTARM_SOURCE_ROOT}/Service/planning/internal/ctrl_planner.c
     ${ROBOTARM_SOURCE_ROOT}/Service/motion/internal/ctrl_closed_loop.c
 )
 robotarm_target(arm_service)
@@ -99,6 +100,7 @@ target_include_directories(arm_service PUBLIC ${ROBOTARM_SOURCE_ROOT}/Service/in
 target_include_directories(arm_service PRIVATE
     Core/Inc
     ${ROBOTARM_SOURCE_ROOT}/Service/motion/internal
+    ${ROBOTARM_SOURCE_ROOT}/Service/planning/internal
     ${ROBOTARM_SOURCE_ROOT}/BSP/include ${ROBOTARM_SOURCE_ROOT}/Device/include
     ${ROBOTARM_SOURCE_ROOT}/Algorithm/include ${ROBOTARM_SOURCE_ROOT}/Algorithm/include/common
     ${ROBOTARM_SOURCE_ROOT}/Platform ${ROBOTARM_SOURCE_ROOT}/Platform/compat

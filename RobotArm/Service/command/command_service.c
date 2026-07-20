@@ -4,7 +4,7 @@
 #include "robot_config.h"
 #include "safety_service.h"
 #include "motion_service.h"
-#include "ctrl_planner.h"
+#include "planning_service.h"
 #include "service/svc_gripper.h"
 
 #include <math.h>
@@ -94,7 +94,7 @@ static uint32_t ComputeDuration(float start_x, float start_y, float start_z,
 
 ErrorCode_t CommandService_Init(float start_x, float start_y, float start_z)
 {
-    ErrorCode_t result = Ctrl_Planner_Init(start_x, start_y, start_z);
+    ErrorCode_t result = PlanningService_Init(start_x, start_y, start_z);
     if (result != ERR_OK) return result;
 
     PlatformCriticalState_t state = PlatformCritical_Enter();
@@ -133,7 +133,7 @@ static void CommitMove(float target_x, float target_y, float target_z, float fee
 
 static ErrorCode_t StartMove(const QueuedMove_t *move, bool foreground)
 {
-    ErrorCode_t result = Ctrl_Planner_MoveLine(
+    ErrorCode_t result = PlanningService_StartLine(
         move->target_x_mm, move->target_y_mm, move->target_z_mm,
         ComputeDuration(s_status.planned_x_mm, s_status.planned_y_mm,
                         s_status.planned_z_mm, move->target_x_mm,
@@ -158,8 +158,8 @@ static ErrorCode_t StartMove(const QueuedMove_t *move, bool foreground)
 void CommandService_Service(void)
 {
     ErrorCode_t result;
-    Ctrl_Planner_Service();
-    if (s_pending_move.active && Ctrl_Planner_TakeStartResult(&result)) {
+    PlanningService_Service();
+    if (s_pending_move.active && PlanningService_TakeStartResult(&result)) {
         bool foreground = s_pending_move.foreground;
         if (result == ERR_OK) {
             CommitMove(s_pending_move.target_x_mm, s_pending_move.target_y_mm,
@@ -180,7 +180,7 @@ void CommandService_Service(void)
         return;
     }
 
-    if (s_pending_move.active || Ctrl_Planner_IsBusy()) return;
+    if (s_pending_move.active || PlanningService_IsBusy()) return;
 
     QueuedMove_t queued;
     if (!WaypointQueuePop(&queued)) return;
@@ -197,7 +197,7 @@ void CommandService_Service(void)
 
 bool CommandService_IsMotionPending(void)
 {
-    return s_pending_move.active || Ctrl_Planner_IsBusy() || WaypointQueueCount() > 0U;
+    return s_pending_move.active || PlanningService_IsBusy() || WaypointQueueCount() > 0U;
 }
 
 bool CommandService_TakeMoveResult(ErrorCode_t *out_result)
@@ -246,7 +246,7 @@ ErrorCode_t CommandService_RunGCode(const GCodeFrame_t *frame)
             .feedrate_mm_min = feedrate,
         };
 
-        if (s_pending_move.active || Ctrl_Planner_IsBusy() || WaypointQueueCount() > 0U) {
+        if (s_pending_move.active || PlanningService_IsBusy() || WaypointQueueCount() > 0U) {
             if (!WaypointQueuePush(&move)) return ERR_BUFFER_FULL;
             s_enqueue_x_mm = target_x;
             s_enqueue_y_mm = target_y;
@@ -281,7 +281,7 @@ ErrorCode_t CommandService_RunTeleopStep(float dx_mm, float dy_mm, float dz_mm)
         WaypointQueueCount() > 0U || MotionService_IsClosedLoopRecoveryActive())
         return ERR_BUSY;
 
-    ErrorCode_t result = Ctrl_Planner_TeleopStep(dx_mm, dy_mm, dz_mm);
+    ErrorCode_t result = PlanningService_StartTeleopStep(dx_mm, dy_mm, dz_mm);
     if (result != ERR_OK) return result;
 
     PlatformCriticalState_t state = PlatformCritical_Enter();

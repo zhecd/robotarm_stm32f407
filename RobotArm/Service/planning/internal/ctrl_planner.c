@@ -5,10 +5,9 @@
 
 #include "ctrl_planner.h"
 
-#include "main.h"
 #include "robot_math.h"
 #include "algorithm/kinematics.h"
-#include "ctrl_motion_engine.h"
+#include "motion_service.h"
 
 #include <math.h>
 
@@ -123,7 +122,7 @@ bool Ctrl_Planner_TakeStartResult(ErrorCode_t *out_result)
 ErrorCode_t Ctrl_Planner_MoveLine(float target_x, float target_y, float target_z,
                                   uint32_t duration_ms)
 {
-    if (Ctrl_MotionEngine_HasFault() || Ctrl_Planner_IsBusy()) return ERR_BUSY;
+    if (MotionService_HasFault() || Ctrl_Planner_IsBusy()) return ERR_BUSY;
 
     const float dx = target_x - s_cur_x;
     const float dy = target_y - s_cur_y;
@@ -219,9 +218,9 @@ static bool ValidatePathSlice(void)
     s_cur_x = s_move.target_x;
     s_cur_y = s_move.target_y;
     s_cur_z = s_move.target_z;
-    Ctrl_MotionEngine_AdjustTheorySteps(s_move.target_m1 - s_move.start_m1,
-                                        s_move.target_m2 - s_move.start_m2,
-                                        s_move.target_m3 - s_move.start_m3);
+    MotionService_AdjustTheorySteps(s_move.target_m1 - s_move.start_m1,
+                                    s_move.target_m2 - s_move.start_m2,
+                                    s_move.target_m3 - s_move.start_m3);
     s_move.state = PLANNER_STREAMING;
     PublishStartResult(ERR_OK);
     return true;
@@ -250,7 +249,7 @@ static bool GenerateOneFrame(void)
     if (status != ERR_OK) {
         /* This cannot normally occur after validation.  Stop before a
          * partially generated path can continue if the solver changes. */
-        Ctrl_MotionEngine_EmergencyStopWithReason(MOTION_FAULT_QUEUE_TIMEOUT);
+        MotionService_AbortForFault(MOTION_FAULT_QUEUE_TIMEOUT);
         s_move.state = PLANNER_IDLE;
         return false;
     }
@@ -274,7 +273,7 @@ static bool GenerateOneFrame(void)
         if (remaining < END_SLOW_SEGMENTS)
             frame.total_ticks += (END_SLOW_SEGMENTS - remaining) *
                                  STOP_TAIL_EXTRA_TICKS;
-        if (!Ctrl_MotionEngine_PushFrame(&frame)) return false;
+        if (!MotionService_SubmitFrame(&frame)) return false;
     }
 
     s_move.previous_tick = cumulative_ticks;
@@ -292,7 +291,7 @@ static bool GenerateOneFrame(void)
 void Ctrl_Planner_Service(void)
 {
     if (s_move.state == PLANNER_VALIDATING) {
-        if (Ctrl_MotionEngine_HasFault()) {
+        if (MotionService_HasFault()) {
             s_move.state = PLANNER_IDLE;
             PublishStartResult(ERR_BUSY);
             return;
@@ -300,7 +299,7 @@ void Ctrl_Planner_Service(void)
         (void)ValidatePathSlice();
         return;
     }
-    if (s_move.state != PLANNER_STREAMING || Ctrl_MotionEngine_HasFault()) return;
+    if (s_move.state != PLANNER_STREAMING || MotionService_HasFault()) return;
 
     uint32_t budget = PLANNER_SERVICE_FRAME_BUDGET;
     while (budget-- > 0U && s_move.state == PLANNER_STREAMING) {
@@ -310,8 +309,8 @@ void Ctrl_Planner_Service(void)
 
 ErrorCode_t Ctrl_Planner_TeleopStep(float dx, float dy, float dz)
 {
-    if (Ctrl_MotionEngine_HasFault() || Ctrl_Planner_IsBusy()) return ERR_BUSY;
-    if (Ctrl_MotionEngine_GetQueueCount() >= 1U) return ERR_BUSY;
+    if (MotionService_HasFault() || Ctrl_Planner_IsBusy()) return ERR_BUSY;
+    if (MotionService_GetQueueCount() >= 1U) return ERR_BUSY;
 
     float tx = s_cur_x + dx;
     float ty = s_cur_y + dy;
@@ -336,11 +335,11 @@ ErrorCode_t Ctrl_Planner_TeleopStep(float dx, float dy, float dz)
                                         frame.delta_m3);
     if (steps > frame.total_ticks) frame.total_ticks = steps;
     ApplyStepRateLimit(&frame);
-    if (!Ctrl_MotionEngine_PushFrame(&frame))
-        return Ctrl_MotionEngine_HasFault() ? ERR_BUSY : ERR_BUFFER_FULL;
+    if (!MotionService_SubmitFrame(&frame))
+        return MotionService_HasFault() ? ERR_BUSY : ERR_BUFFER_FULL;
 
-    Ctrl_MotionEngine_AdjustTheorySteps(frame.delta_m1, frame.delta_m2,
-                                        frame.delta_m3);
+    MotionService_AdjustTheorySteps(frame.delta_m1, frame.delta_m2,
+                                    frame.delta_m3);
     s_planned_m1 = units.rot_units;
     s_planned_m2 = units.low_units;
     s_planned_m3 = units.high_units;

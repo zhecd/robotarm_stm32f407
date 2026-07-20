@@ -6,7 +6,6 @@
 
 #include "ctrl_closed_loop.h"
 #include "ctrl_motion_engine.h"
-#include "safety_service.h"
 #include "state_service.h"
 #include "device/dev_joint.h"
 #include "platform_time.h"
@@ -65,7 +64,7 @@ static bool UpdateEncoder(int axis)
         if (!Dev_Joint_IsWithinSoftLimit((DevJointId_t)axis, motor_angle_deg)) {
             StateService_PublishAxisSample((uint8_t)axis, motor_angle_deg,
                 RobotHomePose_MotorDegToJointDeg((RobotHomeAxis_t)axis, motor_angle_deg));
-            SafetyService_ReportSoftLimit();
+            Ctrl_MotionEngine_EmergencyStopWithReason(MOTION_FAULT_SOFT_LIMIT);
             return false;
         }
 #endif
@@ -78,7 +77,7 @@ static bool UpdateEncoder(int axis)
     ax->read_failures++;
     StateService_PublishAxisReadFailure((uint8_t)axis, ax->read_failures);
     if (ax->read_failures >= CL_ENCODER_FAIL_LIMIT)
-        SafetyService_ReportEncoderFailure();
+        Ctrl_MotionEngine_EmergencyStopWithReason(MOTION_FAULT_ENCODER);
     return false;
 }
 
@@ -217,7 +216,7 @@ static int32_t ComputeCorrection(int i, uint32_t now_ms)
     if (ax->correction_pending) {
         if (abs_err > ax->pending_error_abs + CL_DIVERGENCE_TOLERANCE_DEG) {
             if (++ax->divergence_count >= CL_DIVERGENCE_LIMIT) {
-                SafetyService_ReportControlDivergence();
+                Ctrl_MotionEngine_EmergencyStopWithReason(MOTION_FAULT_CONTROL_DIVERGENCE);
                 return 0;
             }
         } else {
@@ -225,7 +224,7 @@ static int32_t ComputeCorrection(int i, uint32_t now_ms)
             if (ax->pending_is_recovery &&
                 (ax->pending_error_abs - abs_err) < CL_RECOVERY_MIN_PROGRESS_DEG) {
                 if (++ax->no_progress_count >= CL_RECOVERY_NO_PROGRESS_LIMIT) {
-                    SafetyService_ReportControlDivergence();
+                    Ctrl_MotionEngine_EmergencyStopWithReason(MOTION_FAULT_CONTROL_DIVERGENCE);
                     return 0;
                 }
             } else {

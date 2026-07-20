@@ -1,22 +1,16 @@
-# 服务层状态与决策所有权
+# 服务状态所有权
 
-## 目的
+每一项可变状态只由一个服务或内部控制器写入，其他模块通过公开查询接口或事件读取。这一约束避免命令、规划、闭环和中断路径同时修改同一状态。
 
-本文件定义 `robotarm_stm32f407` 重构后的运行时状态和决策边界。每一项可变状态只能由一个服务写入，其他模块通过只读快照或服务接口读取。这一约束避免 G-code、规划器、闭环控制和中断路径同时维护同一份位置或故障状态。
+| 模块 | 拥有的状态 | 主要写入时机 |
+|---|---|---|
+| CommandService | 命令来源、规划坐标、进给速度、路径点 FIFO | G-code 或 PS2 命令被接受时 |
+| PlanningService / Ctrl_Planner | 当前路径校验和流式生成状态 | 规划服务周期运行时 |
+| MotionService / Ctrl_MotionEngine | 运动帧队列、当前 STEP 帧、理论步数、Motion 故障事件 | 主循环服务和 TIM6 中断 |
+| Ctrl_ClosedLoop | 编码器滤波、闭环目标和恢复轨迹 | 闭环周期运行时 |
+| StateService | 编码器采样和关节角度快照 | 编码器读取成功或失败时 |
+| SafetyService | 回零标志、运动许可和锁存故障 | AppRuntime 处理 Motion 故障或回零完成时 |
+| HomingService | 回零状态机 | 回零服务周期运行时 |
+| GripperService | 夹爪服务动作与空闲停止 | M3/M5 或 PS2 输入时 |
 
-## 所有权表
-
-| 服务 | 唯一可写状态 | 唯一决策权 | 当前迁移状态 |
-|---|---|---|---|
-| `CommandService` | 活动命令、输入源、模式和命令 generation | G-code、PS2 和内部命令的仲裁 | 后续阶段 |
-| `MotionService` | 已接受的规划位置、理论步数、运动队列和执行状态 | 正常 STEP/DIR 输出 | 后续阶段；当前由 `ctrl_motion_engine` 与 `ctrl_planner` 承担 |
-| `StateService` | 编码器测量、连续角度、测量时间戳和有效性 | 发布测量快照 | 后续阶段；当前由 `ctrl_closed_loop` 承担 |
-| `SafetyService` | 故障锁存、回零状态和运动许可 | 接受或拒绝运动、锁存或清除故障 | 后续阶段；当前由 `ctrl_motion_engine` 承担 |
-| `HomingService` | 回零状态机上下文 | 回零过程推进 | 后续阶段；当前为同步 `Svc_Homing_Execute()` |
-| `GripperService` | 夹爪服务状态 | 打开、关闭和空闲停止策略 | 已有 `svc_gripper` |
-
-## 当前第一轮的约束
-
-第一轮重构不改变运动参数、插补算法、回零流程或串口协议。其目标是将入口、任务调度和 HAL 回调移出 `main.c`，并建立后续服务化所需的目录、构建目标和依赖规则。
-
-在这一阶段，`ctrl_motion_engine` 仍暂时保存队列与故障，`ctrl_closed_loop` 仍暂时保存编码器相关状态。这些兼容职责将在 `StateService`、`SafetyService` 和 `MotionService` 建立后迁移；在迁移完成前，不新增第二个写入者。
+`MotionService` 的理论步数表示已被规划器接受的电机侧目标，不等同于编码器实时测量。`StateService` 保存的是测量值；两者的偏差由闭环控制器处理。

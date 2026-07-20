@@ -28,7 +28,6 @@ void SafetyService_ReportEncoderFailure(void);
 void SafetyService_ReportSoftLimit(void);
 void SafetyService_ReportQueueTimeout(void);
 void SafetyService_ReportControlDivergence(void);
-void SafetyService_ObserveLegacyMotionFault(void);
 bool SafetyService_IsMotionAllowed(void);
 bool SafetyService_HasFault(void);
 SafetyFault_t SafetyService_GetFault(void);
