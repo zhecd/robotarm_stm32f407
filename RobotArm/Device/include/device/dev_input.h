@@ -1,4 +1,7 @@
-/** @file dev_input.h @brief Operator-input device abstraction. */
+/**
+ * @file dev_input.h
+ * @brief 输入设备：提供与 PS2 通信细节分离的按键和摇杆状态。
+ */
 #ifndef ROBOTARM_DEV_INPUT_H
 #define ROBOTARM_DEV_INPUT_H
 

@@ -1,0 +1,9 @@
+{
+  "schema": "robotarm-sorting-preview-v1",
+  "start_mm": [0, 185, 240],
+  "detection": {"color": "red", "x_mm": 10, "y_mm": 180, "z_mm": 100},
+  "bins": {"red": [20, 180, 100]},
+  "safe_z_mm": 160,
+  "feed_mm_min": 1000,
+  "gripper_settle_s": 0.8
+}

@@ -1,13 +1,13 @@
 /**
- * @file    app_gcode_parser.c
- * @brief   G-code line parser implementation. / G-code 鐞涘矁袙閺嬫劕娅掔€圭偟骞囬妴?
- * @ingroup app
+ * @file app_gcode_parser.c
+ * @brief G-code 语法解析：只生成命令结构，不调用设备或执行运动。
  */
 
 #include "app/app_gcode_parser.h"
 #include <ctype.h>
 #include <math.h>
 #include <stdlib.h>
+#include <errno.h>
 
 static void ResetFrame(GCodeFrame_t *f)
 {
@@ -27,23 +27,31 @@ bool App_GCodeParser_ParseLine(const char *line, GCodeFrame_t *frame)
     char command_letter = (char)toupper((unsigned char)*c++);
     char *end = NULL;
     long command = 0;
+    errno = 0;
 
     /* Exactly one leading G/M command is accepted.  Parameters can only
        follow it; a second G/M is rejected rather than silently overriding. */
     if (command_letter == 'G') {
         command = strtol(c, &end, 10);
-        if (end == c) return false;
+        if (end == c || errno == ERANGE) return false;
         if (command == 0) frame->type = GCMD_G0;
         else if (command == 1) frame->type = GCMD_G1;
         else return false;
     } else if (command_letter == 'M') {
         command = strtol(c, &end, 10);
-        if (end == c) return false;
+        if (end == c || errno == ERANGE) return false;
         if (command == 3) frame->type = GCMD_M3;
         else if (command == 5) frame->type = GCMD_M5;
         else if (command == 114) frame->type = GCMD_M114;
+        else if (command == 112) frame->type = GCMD_M112;
+        else if (command == 115) frame->type = GCMD_M115;
         else if (command == 119) frame->type = GCMD_M119;
         else if (command == 400) frame->type = GCMD_M400;
+        else if (command == 408) frame->type = GCMD_M408;
+        else if (command == 409) frame->type = GCMD_M409;
+        else if (command == 410) frame->type = GCMD_M410;
+        else if (command == 411) frame->type = GCMD_M411;
+        else if (command == 412) frame->type = GCMD_M412;
         else if (command == 999) frame->type = GCMD_M999;
         else return false;
     } else {
@@ -56,29 +64,32 @@ bool App_GCodeParser_ParseLine(const char *line, GCodeFrame_t *frame)
         if (command_letter != 'G') return false; /* M3/M5/M999 take no args. */
 
         char letter = (char)toupper((unsigned char)*c++);
+        errno = 0;
         switch (letter) {
         case 'X':
             if (frame->has_x) return false;
             frame->x = strtof(c, &end);
-            if (end == c || !isfinite(frame->x)) return false;
+            if (end == c || errno == ERANGE || !isfinite(frame->x)) return false;
             frame->has_x = true;
             break;
         case 'Y':
             if (frame->has_y) return false;
             frame->y = strtof(c, &end);
-            if (end == c || !isfinite(frame->y)) return false;
+            if (end == c || errno == ERANGE || !isfinite(frame->y)) return false;
             frame->has_y = true;
             break;
         case 'Z':
             if (frame->has_z) return false;
             frame->z = strtof(c, &end);
-            if (end == c || !isfinite(frame->z)) return false;
+            if (end == c || errno == ERANGE || !isfinite(frame->z)) return false;
             frame->has_z = true;
             break;
         case 'F': {
             if (frame->has_f) return false;
+            while (isspace((unsigned char)*c)) c++;
+            if (!isdigit((unsigned char)*c)) return false;
             unsigned long feed = strtoul(c, &end, 10);
-            if (end == c || feed == 0U || feed > UINT32_MAX) return false;
+            if (end == c || errno == ERANGE || feed == 0U || feed > UINT32_MAX) return false;
             frame->f = (uint32_t)feed;
             frame->has_f = true;
             break;

@@ -1,3 +1,7 @@
+/**
+ * @file bsp_driver_config.h
+ * @brief 具体器件驱动配置：电流、微步、PWM 和串行通信时序参数。
+ */
 #ifndef ROBOTARM_BSP_DRIVER_CONFIG_H
 #define ROBOTARM_BSP_DRIVER_CONFIG_H
 

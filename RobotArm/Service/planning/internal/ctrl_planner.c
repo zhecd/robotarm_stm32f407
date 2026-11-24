@@ -1,6 +1,7 @@
 /**
  * @file ctrl_planner.c
- * @brief Incremental Cartesian path validation and motion-frame generation.
+ * @brief 规划内部实现：先校验整条路径，再按预算逐步生成 STEP 运动帧。
+ * @details 五次平滑函数改善段间起停，但代码检查不证明整机加速度或抖动已实测达标。
  */
 
 #include "ctrl_planner.h"
@@ -8,6 +9,7 @@
 #include "robot_math.h"
 #include "algorithm/kinematics.h"
 #include "motion_service.h"
+#include "platform_time.h"
 
 #include <math.h>
 
@@ -46,6 +48,8 @@ typedef struct {
     int32_t generated_m1;
     int32_t generated_m2;
     int32_t generated_m3;
+    bool queue_waiting;
+    uint32_t queue_wait_started_ms;
 } PlannerMove_t;
 
 static int32_t s_planned_m1;
@@ -111,6 +115,13 @@ bool Ctrl_Planner_IsBusy(void)
     return s_move.state != PLANNER_IDLE;
 }
 
+/* 只取消尚未完成的规划；已停止运动后的坐标不能继续沿用，恢复必须重新回零。 */
+void Ctrl_Planner_Cancel(void)
+{
+    s_move.state = PLANNER_IDLE;
+    s_start_result_ready = false;
+}
+
 bool Ctrl_Planner_TakeStartResult(ErrorCode_t *out_result)
 {
     if (!s_start_result_ready) return false;
@@ -128,19 +139,26 @@ ErrorCode_t Ctrl_Planner_MoveLine(float target_x, float target_y, float target_z
     const float dy = target_y - s_cur_y;
     const float dz = target_z - s_cur_z;
     const float distance = sqrtf(dx * dx + dy * dy + dz * dz);
-    if (distance < 0.1f) {
-        s_cur_x = target_x;
-        s_cur_y = target_y;
-        s_cur_z = target_z;
-        return ERR_OK;
-    }
-
     RobotAngles_t target_angles;
     RobotMotorUnits_t target_units;
     ErrorCode_t status = Kinematics_Solve(target_x, target_y, target_z,
                                            &target_angles);
     if (status != ERR_OK) return status;
     Kinematics_ToMotorUnits(&target_angles, &target_units);
+
+    /* 微小请求也必须先过逆解/软限位。只有三轴量化后的微步均未改变时才可省帧；
+     * 否则连续的小增量会只更新XYZ、不推进电机，累计后把计划坐标与执行参考分离。
+     * 原0.1mm近点优化保留，但不再忽略已经对应一个或多个微步的合法请求。 */
+    if (distance < 0.1f && target_units.rot_units == s_planned_m1 &&
+        target_units.low_units == s_planned_m2 && target_units.high_units == s_planned_m3) {
+        s_cur_x = target_x;
+        s_cur_y = target_y;
+        s_cur_z = target_z;
+        return ERR_OK;
+    }
+
+    /* 公开时长是ms，帧计时是tick；先检查再乘，禁止溢出成较短的实际时长。 */
+    if (duration_ms > UINT32_MAX / TICKS_PER_MS) return ERR_OUT_OF_RANGE;
 
     uint32_t total_ticks = duration_ms * TICKS_PER_MS;
     if (total_ticks < MIN_FRAME_TICKS) total_ticks = MIN_FRAME_TICKS;
@@ -156,8 +174,8 @@ ErrorCode_t Ctrl_Planner_MoveLine(float target_x, float target_y, float target_z
     if (seg_motor == 0U) seg_motor = 1U;
 
     uint32_t ticks_per_segment = PLANNER_SEGMENT_MS * TICKS_PER_MS;
-    uint32_t seg_time = (total_ticks + ticks_per_segment - 1U) /
-                        ticks_per_segment;
+    uint32_t seg_time = (uint32_t)(((uint64_t)total_ticks + ticks_per_segment - 1U) /
+                        ticks_per_segment);
     if (seg_time == 0U) seg_time = 1U;
 
     uint32_t segments = seg_dist;
@@ -277,7 +295,20 @@ static bool GenerateOneFrame(void)
 
     /* Zero-step frames are intentional dwell intervals.  Keeping them in
        the queue preserves the requested feedrate near smoothstep endpoints. */
-    if (!MotionService_SubmitFrame(&frame)) return false;
+    if (!MotionService_SubmitFrame(&frame)) {
+        /* 队列满时让出主循环，等待 ISR 消费；禁止原地忙等。
+           若执行器长时间不消费帧，按配置超时并撤销整段规划。 */
+        uint32_t now=PlatformTime_NowMs();
+        if (!s_move.queue_waiting) {
+            s_move.queue_waiting=true;
+            s_move.queue_wait_started_ms=now;
+        } else if ((uint32_t)(now-s_move.queue_wait_started_ms)>=PLANNER_QUEUE_TIMEOUT_MS) {
+            MotionService_AbortForFault(MOTION_FAULT_QUEUE_TIMEOUT);
+            s_move.state=PLANNER_IDLE;
+        }
+        return false;
+    }
+    s_move.queue_waiting=false;
 
     s_move.previous_tick = cumulative_ticks;
     s_move.generated_m1 = units.rot_units;
@@ -293,6 +324,12 @@ static bool GenerateOneFrame(void)
 
 void Ctrl_Planner_Service(void)
 {
+    if (MotionService_HasFault()) {
+        bool validating = s_move.state == PLANNER_VALIDATING;
+        Ctrl_Planner_Cancel();
+        if (validating) PublishStartResult(ERR_BUSY);
+        return;
+    }
     if (s_move.state == PLANNER_VALIDATING) {
         if (MotionService_HasFault()) {
             s_move.state = PLANNER_IDLE;
@@ -313,6 +350,8 @@ void Ctrl_Planner_Service(void)
 ErrorCode_t Ctrl_Planner_TeleopStep(float dx, float dy, float dz)
 {
     if (MotionService_HasFault() || Ctrl_Planner_IsBusy()) return ERR_BUSY;
+    /* 队列数不含ISR正在执行的帧：最多当前1帧+等待1帧。
+     * 单生产者主循环检查，ISR只消费；满时拒绝且不推进规划/理论终点。 */
     if (MotionService_GetQueueCount() >= 1U) return ERR_BUSY;
 
     float tx = s_cur_x + dx;
@@ -331,8 +370,12 @@ ErrorCode_t Ctrl_Planner_TeleopStep(float dx, float dy, float dz)
         .delta_m3 = units.high_units - s_planned_m3,
         .total_ticks = TELEOP_FRAME_MS * TICKS_PER_MS,
     };
-    if (frame.delta_m1 == 0 && frame.delta_m2 == 0 && frame.delta_m3 == 0)
+    if (frame.delta_m1 == 0 && frame.delta_m2 == 0 && frame.delta_m3 == 0) {
+        /* 小于一个微步的合法增量仍计入笛卡尔目标；后续累积跨过量化边界再发步。
+         * 不推进已发/理论微步，避免命令层接受坐标、规划层却丢弃同一增量。 */
+        s_cur_x = tx;s_cur_y = ty;s_cur_z = tz;
         return ERR_OK;
+    }
 
     uint32_t steps = RobotMath_MaxAbs3(frame.delta_m1, frame.delta_m2,
                                         frame.delta_m3);

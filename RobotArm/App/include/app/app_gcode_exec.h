@@ -1,7 +1,6 @@
 /**
- * @file    app_gcode_exec.h
- * @brief   G-code command executor 閳?maps parsed commands to planner calls / G-code 閹稿洣鎶ら幍褑顢戦崳? 鐏忓棜袙閺嬫劗绮ㄩ弸婊勬Ё鐏忓嫪璐熺憴鍕灊閸ｃ劏鐨熼悽?
- * @ingroup app
+ * @file app_gcode_exec.h
+ * @brief G-code 执行适配：委托命令服务，隔离协议会话与业务实现。
  */
 
 #ifndef __APP_GCODE_EXEC_H__

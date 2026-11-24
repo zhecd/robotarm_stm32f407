@@ -1,12 +1,19 @@
+/**
+ * @file planning_service.c
+ * @brief 规划公开入口：增量校验路径并生成运动帧，不暴露私有规划器。
+ */
 #include "planning_service.h"
 
 #include "ctrl_planner.h"
+
+void PlanningService_Cancel(void) { Ctrl_Planner_Cancel(); }
 
 ErrorCode_t PlanningService_Init(float start_x, float start_y, float start_z)
 {
     return Ctrl_Planner_Init(start_x, start_y, start_z);
 }
 
+/** 输入目标 mm 和总时长 ms；非零路径先返回 ERR_PENDING，由 Service 推进。 */
 ErrorCode_t PlanningService_StartLine(float target_x, float target_y,
                                       float target_z, uint32_t duration_ms)
 {

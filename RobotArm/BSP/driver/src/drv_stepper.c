@@ -1,12 +1,12 @@
 /**
- * @file    bsp_stepper.c
- * @brief   Stepper motor GPIO driver implementation / 濮濄儴绻橀悽鍨簚 GPIO 妞瑰崬濮╃€圭偟骞?
- * @ingroup bsp
+ * @file drv_stepper.c
+ * @brief STEP/DIR 驱动：方向、单次脉冲与三轴共用使能。
+ * @details NOP 数量不等同于已验证的 STEP 脉宽，实际脉宽和 DIR 建立时间须后续实机测量。
  */
 
 #include "driver/drv_stepper.h"
 
-/* 閳光偓閳光偓 3 motor instances / 娑撳閲滈悽鍨簚鐎圭偘绶?閳光偓閳光偓 */
+/* 3 motor instances */
 
 static StepperDevice_t s_motor_m1 = {
     .step_port        = M1_STEP_GPIO_Port,
@@ -43,7 +43,7 @@ void Drv_Stepper_Init(void)
     __HAL_RCC_GPIOB_CLK_ENABLE();
     __HAL_RCC_GPIOD_CLK_ENABLE();
 
-    /* EN pin / 娴ｈ儻鍏樺鏇″壖 */
+    /* EN pin */
     HAL_GPIO_WritePin(EN_GPIO_Port, EN_Pin, GPIO_PIN_SET);
     gpio.Pin   = EN_Pin;
     gpio.Mode  = GPIO_MODE_OUTPUT_PP;
@@ -51,19 +51,19 @@ void Drv_Stepper_Init(void)
     gpio.Speed = GPIO_SPEED_FREQ_HIGH;
     HAL_GPIO_Init(EN_GPIO_Port, &gpio);
 
-    /* M1 STEP + DIR / M1 濮濄儴绻?閺傜懓鎮?*/
+    /* M1 STEP + DIR */
     HAL_GPIO_WritePin(M1_STEP_GPIO_Port, M1_STEP_Pin, GPIO_PIN_RESET);
     HAL_GPIO_WritePin(M1_DIR_GPIO_Port, M1_DIR_Pin, GPIO_PIN_RESET);
     gpio.Pin = M1_STEP_Pin;  HAL_GPIO_Init(M1_STEP_GPIO_Port, &gpio);
     gpio.Pin = M1_DIR_Pin;   HAL_GPIO_Init(M1_DIR_GPIO_Port, &gpio);
 
-    /* M2 STEP + DIR / M2 濮濄儴绻?閺傜懓鎮?*/
+    /* M2 STEP + DIR */
     HAL_GPIO_WritePin(M2_STEP_GPIO_Port, M2_STEP_Pin, GPIO_PIN_RESET);
     HAL_GPIO_WritePin(M2_DIR_GPIO_Port, M2_DIR_Pin, GPIO_PIN_RESET);
     gpio.Pin = M2_STEP_Pin;  HAL_GPIO_Init(M2_STEP_GPIO_Port, &gpio);
     gpio.Pin = M2_DIR_Pin;   HAL_GPIO_Init(M2_DIR_GPIO_Port, &gpio);
 
-    /* M3 STEP + DIR / M3 濮濄儴绻?閺傜懓鎮?*/
+    /* M3 STEP + DIR */
     HAL_GPIO_WritePin(M3_STEP_GPIO_Port, M3_STEP_Pin, GPIO_PIN_RESET);
     HAL_GPIO_WritePin(M3_DIR_GPIO_Port, M3_DIR_Pin, GPIO_PIN_RESET);
     gpio.Pin = M3_STEP_Pin;  HAL_GPIO_Init(M3_STEP_GPIO_Port, &gpio);
@@ -86,6 +86,7 @@ bool Drv_Stepper_SetDir(StepperDevice_t *motor, StepperDirection_t dir)
     return true;
 }
 
+/** 输出一次 STEP 并累加驱动层计数；脉冲时序属于后续硬件验收项目。 */
 bool Drv_Stepper_Step(StepperDevice_t *motor)
 {
     if (!motor) return false;
@@ -98,7 +99,14 @@ bool Drv_Stepper_Step(StepperDevice_t *motor)
     return true;
 }
 
-/* 閳光偓閳光偓 Accessor functions / 鐠佸潡妫堕崳銊ュ毐閺?閳光偓閳光偓 */
+/* 设备实例访问入口。 */
+bool Drv_Stepper_WriteStepLevel(StepperDevice_t *motor, bool high)
+{
+    if (!motor) return false;
+    HAL_GPIO_WritePin(motor->step_port,motor->step_pin,
+                      high ? GPIO_PIN_SET : GPIO_PIN_RESET);
+    return true;
+}
 
 StepperDevice_t *Drv_Stepper_GetM1(void) { return &s_motor_m1; }
 StepperDevice_t *Drv_Stepper_GetM2(void) { return &s_motor_m2; }

@@ -1,27 +1,27 @@
-/** @file dev_limit_switch.c @brief Active-low limit-switch adapter. */
+/**
+ * @file dev_limit_switch.c
+ * @brief 限位设备：以逻辑轴查询开关，GPIO 端口和有效电平由 BSP 解释。
+ */
 #include "device/dev_limit_switch.h"
-#include "main.h"
+#include "bsp/bsp_robot_board.h"
 
 bool Dev_LimitSwitch_IsTriggered(DevJointId_t joint)
 {
-    switch (joint) {
-    case DEV_JOINT_M1:
-        return HAL_GPIO_ReadPin(M1_STOP_GPIO_Port, M1_STOP_Pin) == GPIO_PIN_RESET;
-    case DEV_JOINT_M2:
-        return HAL_GPIO_ReadPin(M2_STOP_GPIO_Port, M2_STOP_Pin) == GPIO_PIN_RESET;
-    case DEV_JOINT_M3:
-        return HAL_GPIO_ReadPin(M3_STOP_GPIO_Port, M3_STOP_Pin) == GPIO_PIN_RESET;
-    default:
-        return false;
-    }
+    return (unsigned)joint < DEV_JOINT_COUNT && BSP_RobotBoard_IsLimitTriggered((uint8_t)joint);
 }
-
-bool Dev_LimitSwitch_IsPinTriggered(uint16_t gpio_pin)
+void Dev_LimitSwitch_MaskDiagnosticInterrupt(DevJointId_t joint)
 {
-    switch (gpio_pin) {
-    case M1_STOP_Pin: return Dev_LimitSwitch_IsTriggered(DEV_JOINT_M1);
-    case M2_STOP_Pin: return Dev_LimitSwitch_IsTriggered(DEV_JOINT_M2);
-    case M3_STOP_Pin: return Dev_LimitSwitch_IsTriggered(DEV_JOINT_M3);
-    default: return false;
-    }
+    Dev_LimitSwitch_MaskInterrupt(joint);
+}
+void Dev_LimitSwitch_MaskInterrupt(DevJointId_t joint)
+{
+    if ((unsigned)joint<DEV_JOINT_COUNT) BSP_RobotBoard_MaskLimitInterrupt((uint8_t)joint);
+}
+void Dev_LimitSwitch_ResetDiagnosticInterrupts(void)
+{
+    BSP_RobotBoard_ResetLimitInterrupts();
+}
+bool Dev_LimitSwitch_TryRearmInterrupt(DevJointId_t joint)
+{
+    return (unsigned)joint<DEV_JOINT_COUNT && BSP_RobotBoard_TryRearmLimitInterrupt((uint8_t)joint);
 }

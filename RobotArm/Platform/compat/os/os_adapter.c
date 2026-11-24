@@ -1,4 +1,7 @@
-/** @file os_adapter.c @brief Bare-metal implementation of OS abstractions. */
+/**
+ * @file os_adapter.c
+ * @brief 历史时间接口兼容层：委托 Platform；当前工程采用裸机协作式主循环。
+ */
 #include "os/os_adapter.h"
 #include "platform_delay.h"
 #include "platform_time.h"

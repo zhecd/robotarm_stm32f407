@@ -16,6 +16,9 @@
 /* USER CODE BEGIN Includes */
 #include "app_init.h"
 #include "app_isr_adapter.h"
+#if ROBOTARM_STARTUP_TRIAL_MODE
+void StartupTrial_FailFromException(void);
+#endif
 /* USER CODE END Includes */
 
 void SystemClock_Config(void);
@@ -93,6 +96,9 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
 
 void Error_Handler(void)
 {
+#if ROBOTARM_STARTUP_TRIAL_MODE
+  StartupTrial_FailFromException();
+#endif
   __disable_irq();
   while (1)
   {

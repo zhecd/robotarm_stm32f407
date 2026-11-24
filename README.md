@@ -4,6 +4,14 @@
 
 本仓库只负责机械臂下位机：接收上位机或手柄命令，完成运动执行与设备保护；视觉识别、任务决策等功能应放在上位机侧。
 
+## 正式并行回零与分步教学
+
+`ProductionDebug` 和 `ProductionRelease` 的 M1/M2/M3 回零退回角为 **101.7° / 29° / 4°**，对应 **4068 / 1160 / 160 微步**。三轴在 1 ms 调度下寻位，全部稳定接触后并行退回。正式镜像上电会自动闭爪并回零。`ProductionLocked` 提供编译禁动的上机前检查。
+
+[下位机分步复现蓝图 Markdown](docs/teaching/VibeCoding_下位机分步复现蓝图.md) · [Word 版](docs/teaching/VibeCoding_下位机分步复现蓝图.docx)
+
+现有源码的 Host 并行回零断言与正式 ELF 审计预期仍需与 M1 的 4068 微步对齐。仓库构建和回归使用下面的 CMake 预设。历史打包脚本另依赖本地历史记录。
+
 ## 功能概览
 
 - 三轴步进关节与 TMC2209 驱动；三路 AS5600 单圈磁编码器反馈。
@@ -77,8 +85,8 @@ Core/            STM32CubeMX 生成的启动、外设初始化与中断入口代
 工程使用 STM32CubeMX 生成底层初始化代码，并使用 CMake/Ninja 构建。请先安装 ARM GNU Toolchain、CMake、Ninja，以及项目使用的 `cube-cmake` 工具。
 
 ```powershell
-cmake --preset Debug
-cmake --build build/Debug --parallel
+cmake --preset ProductionRelease
+cmake --build --preset ProductionRelease
 ```
 
 CubeMX 工程文件为 `robotarm_stm32f407.ioc`。重新生成 CubeMX 代码时，请仅更新 `Core/` 相关生成内容，不要覆盖 `RobotArm/` 下的手写业务代码。
@@ -115,9 +123,9 @@ M999\r\n                      ; 故障后重新回零并恢复
 下列命令使用本机 GCC 构建不依赖 STM32 硬件的逻辑测试：
 
 ```powershell
-cmake -S tests -B build/host-tests -G Ninja -DCMAKE_C_COMPILER=gcc
-cmake --build build/host-tests
-ctest --test-dir build/host-tests --output-on-failure
+cmake --preset HostTests
+cmake --build --preset HostTests
+ctest --test-dir build/HostTests --output-on-failure
 python scripts/check_architecture_dependencies.py
 ```
 

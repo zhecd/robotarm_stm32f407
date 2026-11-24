@@ -1,6 +1,10 @@
-/** @file dev_input.c @brief PS2-based operator-input adapter. */
+/**
+ * @file dev_input.c
+ * @brief 输入设备：提供与 PS2 通信细节分离的按键和摇杆状态。
+ */
 #include "device/dev_input.h"
 #include "driver/drv_ps2.h"
+#include <stddef.h>
 
 void Dev_Input_Init(void)
 {

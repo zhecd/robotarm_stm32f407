@@ -1,12 +1,12 @@
 /**
- * @file    bsp_led.c
- * @brief   LED board support package implementation / LED 鏉跨骇鏀寔鍖呭疄鐜?
- * @ingroup bsp
+ * @file bsp_led.c
+ * @brief 板级 LED：逻辑编号与实际 GPIO、电平的映射。
  */
 
 #include "bsp/bsp_led.h"
+#include "main.h"
 
-/* LED software state array, initialized to all-off / LED 杞欢鐘舵€佹暟�? 鍒濆鍏ㄧ伃 */
+/* LED software state array, initialized to all-off */
 static LedState_t        s_led_states[LED_COUNT] = {LED_OFF, LED_OFF, LED_OFF, LED_OFF};
 static const uint16_t    s_led_pins[LED_COUNT]   = {LED0_Pin, LED1_Pin, LED2_Pin, LED3_Pin};
 static GPIO_TypeDef     *const s_led_ports[LED_COUNT] = {LED0_GPIO_Port, LED1_GPIO_Port, LED2_GPIO_Port, LED3_GPIO_Port};

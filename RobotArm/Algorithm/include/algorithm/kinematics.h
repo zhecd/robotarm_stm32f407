@@ -1,16 +1,7 @@
 /**
- * @file    kinematics.h
- * @brief   Inverse kinematics for a 3-DOF SCARA-like parallel-gripper arm / 3-DOF SCARA 骞宠澶圭埅鑷傞€嗚繍鍔ㄥ
- * @ingroup domain
- *
- * Link geometry / 杩炴潌鍑犱綍:
- *   - Link 1 (shoulder / �?:  140 mm
- *   - Link 2 (elbow / �?:     140 mm
- *   - Tool offset / 宸ュ叿鍋忕�?   45 mm horizontal / 姘村�? -40 mm vertical / 鍨傜�?
- *   - Base height / 搴曞骇楂樺害:   140 mm (desktop to shoulder / 妗岄潰鍒拌偐)
- *
- * G-code coordinates use a desktop frame: Z=0 at table surface, Z+ upward.
- * G-code 鍧愭爣浣跨敤妗岄潰鍧愭爣�? 妗岄�?Z=0, 涓婃柟涓?Z+�?
+ * @file kinematics.h
+ * @brief 逆运动学：桌面坐标转换为关节角，再转换为有符号电机微步数。
+ * @details 当前逆运动学公式假设 LINK_1_LEN == LINK_2_LEN；更换机构参数需重新核对公式。
  */
 
 #ifndef ROBOTARM_KINEMATICS_H
@@ -25,24 +16,26 @@ extern "C" {
 #endif
 
 typedef struct {
-    float rot;      /* Base rotation angle (deg) / 搴曞骇鏃嬭浆瑙掑�?*/
-    float low;      /* Shoulder angle (deg) / 鑲╁叧鑺傝�?*/
-    float high;     /* Elbow angle (deg) / 鑲樺叧鑺傝�?*/
+    float rot;      /* 底座转角：以正 Y 为零方向，atan2 的参数顺序为 (x, y)。 */
+    float low;      /* 大臂关节角。 */
+    float high;     /* 小臂姿态角。 */
 } RobotAngles_t;
 
 typedef struct {
-    int32_t rot_units;   /* M1 motor units / M1 鐢垫満鍗曚�?*/
-    int32_t low_units;   /* M2 motor units / M2 鐢垫満鍗曚�?*/
-    int32_t high_units;  /* M3 motor units / M3 鐢垫満鍗曚�?*/
+    int32_t rot_units;   /* M1 motor units */
+    int32_t low_units;   /* M2 motor units */
+    int32_t high_units;  /* M3 motor units */
 } RobotMotorUnits_t;
 
 void Kinematics_Init(void);
 
-/** Solve inverse kinematics for a Cartesian target / 閫嗚繍鍔ㄥ姹傝В绗涘崱灏斿潗鏍囩洰鏍?*/
+/* Solve inverse kinematics for a Cartesian target */
 /* Returns ERR_OUT_OF_RANGE when the target cannot be reached by the arm. */
+/** 输入桌面坐标 x/y/z（mm），输出 rot/low/high（关节 deg）；不可达或越限返回错误。 */
 ErrorCode_t Kinematics_Solve(float x, float y, float z, RobotAngles_t *angles);
 
-/** Convert joint angles to motor step units / 鍏宠妭瑙掑害杞數鏈烘鏁板崟浣?*/
+/* Convert joint angles to motor step units */
+/** 关节 deg 转电机微步；M2/M3 取反，不能直接用电机轴角度换算替代。 */
 void Kinematics_ToMotorUnits(const RobotAngles_t *angles, RobotMotorUnits_t *units);
 
 #ifdef __cplusplus

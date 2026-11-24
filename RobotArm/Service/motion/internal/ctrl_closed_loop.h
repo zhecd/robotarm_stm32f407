@@ -1,18 +1,7 @@
 /**
- * @file    ctrl_closed_loop.h
- * @brief   3-axis PID closed-loop position controller / 涓夎�?PID 闂幆浣嶇疆鎺у埗�?
- * @ingroup control
- *
- * Runs at 50 Hz. Compares encoder readings against theory-step targets
- * and injects correction frames into the motion buffer.
- * �?50Hz 杩愯�? 灏嗙紪鐮佸櫒璇绘暟涓庣悊璁烘鏁扮洰鏍囨瘮杈? 鍚戣繍鍔ㄧ紦鍐叉敞鍏ヤ慨姝ｅ抚銆?
- *
- * Features / 鐗规�?
- *   - Adaptive gain (conservative for small errors, aggressive for large) / 鑷€傚簲澧炵泭 (灏忚宸繚�? 澶ц宸己鍔?
- *   - EMA low-pass filter on encoder readings / 缂栫爜鍣?EMA 浣庨€氭护娉?
- *   - Integral separation to prevent windup / 绉垎鍒嗙闃查ケ鍜?
- *   - Stuck-encoder detection with automatic axis disable / 缂栫爜鍣ㄥ崱姝绘娴嬭嚜鍔ㄧ鐢ㄨ酱
- *   - Cooldown timer between corrections / 淇闂村喎鍗磋鏃?
+ * @file ctrl_closed_loop.h
+ * @brief 闭环内部实现：编码器采样、误差补偿和补偿发散保护。
+ * @details 补偿使用电机轴角度，恢复原有目标，不修改规划器的理论位置。
  */
 
 #ifndef __CTRL_CLOSED_LOOP_H__
@@ -21,32 +10,35 @@
 #include <stdbool.h>
 #include <stdint.h>
 #include "common/error_code.h"
+#include "closed_loop_status.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-#define CL_AXIS_COUNT  3     /* Number of controlled axes / 鍙楁帶杞存暟 */
+#define CL_AXIS_COUNT  3     /* 受控轴数。 */
 
 void Ctrl_ClosedLoop_Init(void);
 
-/** Sync PID targets from current theory-step positions / 浠庡綋鍓嶇悊璁烘鏁颁綅缃悓姝?PID 鐩�?*/
+/* 主循环将理论微步同步为电机轴目标；重置滤波与PID，不清诊断累计数。 */
 void Ctrl_ClosedLoop_SyncTarget(void);
 
-/** Run one PID iteration (call at 50 Hz) / 杩愯涓€娆?PID 杩�?(50Hz 璋冪�? */
+/* 主循环每20ms推进一次；运动/稳定等待期间只采样，不新增补偿。 */
 void Ctrl_ClosedLoop_Update(void);
 bool Ctrl_ClosedLoop_IsRecoveryActive(void);
-bool Ctrl_ClosedLoop_IsRecoveryActive(void);
+/* 三轴均已用新鲜反馈确认进入到位死区，稳定等待和补偿均已结束。 */
+bool Ctrl_ClosedLoop_HasSettled(void);
+/* 复制已有记录，无硬件访问；只能由主循环调用，NULL无操作。 */
+void Ctrl_ClosedLoop_GetStatus(ClosedLoopStatus_t *out);
 
-/** Per-axis state queries / 閫愯酱鐘舵€佹煡�?*/
+/* 逐轴闭环配置；axis为0/1/2，不是板端接口编号。 */
 bool          Ctrl_ClosedLoop_IsAxisEnabled(int axis);
 void          Ctrl_ClosedLoop_SetAxisEnabled(int axis, bool en);
 
-/** Get latest encoder angle for an axis (deg), with multi-turn update.
-    鎴愬姛杩斿洖 true 骞跺啓鍏?*out_deg, 澶辫触杩斿洖 false �?*out_deg=0. */
+/* 读取电机轴角度；失败输出 0，调用者必须检查返回值。 */
 bool          Ctrl_ClosedLoop_GetAxisAngle(int axis, float *out_deg);
 
-/** Set zero point for an axis encoder / 璁剧疆杞寸紪鐮佸櫒闆剁偣, 鎴愬姛杩斿洖 ERR_OK */
+/* 设置轴编码器零点，成功返回 ERR_OK。 */
 ErrorCode_t   Ctrl_ClosedLoop_SetAxisZero(int axis);
 
 #ifdef __cplusplus

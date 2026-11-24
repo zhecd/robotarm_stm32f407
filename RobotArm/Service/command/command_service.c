@@ -1,8 +1,11 @@
+/**
+ * @file command_service.c
+ * @brief 命令服务：来源仲裁、缺省坐标继承、路径点 FIFO 与异步结果。
+ */
 #include "command_service.h"
 
 #include "platform_critical.h"
 #include "robot_config.h"
-#include "safety_service.h"
 #include "motion_service.h"
 #include "planning_service.h"
 #include "service/svc_gripper.h"
@@ -79,17 +82,20 @@ static void WaypointQueueClearAndRebase(void)
     s_enqueue_feedrate_mm_min = s_status.feedrate_mm_min;
 }
 
-static uint32_t ComputeDuration(float start_x, float start_y, float start_z,
+static bool ComputeDuration(float start_x, float start_y, float start_z,
                                 float target_x, float target_y, float target_z,
-                                float feedrate_mm_min)
+                                float feedrate_mm_min, uint32_t *out_ms)
 {
-    float dx = target_x - start_x;
-    float dy = target_y - start_y;
-    float dz = target_z - start_z;
-    float distance = sqrtf(dx * dx + dy * dy + dz * dz);
-    if (distance <= GCODE_MIN_MOVE_MM) return 0U;
-    uint32_t duration = (uint32_t)((distance * 60000.0f) / feedrate_mm_min);
-    return duration == 0U ? GCODE_MIN_DURATION_MS : duration;
+    double dx = (double)target_x - start_x;
+    double dy = (double)target_y - start_y;
+    double dz = (double)target_z - start_z;
+    double distance = sqrt(dx*dx + dy*dy + dz*dz);
+    if (!isfinite(distance) || !isfinite(feedrate_mm_min) || feedrate_mm_min <= 0) return false;
+    double duration = distance * 60000.0 / feedrate_mm_min;
+    if (!isfinite(duration) || duration > UINT32_MAX) return false;
+    *out_ms = distance <= GCODE_MIN_MOVE_MM ? 0U :
+              duration < 1.0 ? GCODE_MIN_DURATION_MS : (uint32_t)duration;
+    return true;
 }
 
 ErrorCode_t CommandService_Init(float start_x, float start_y, float start_z)
@@ -133,12 +139,13 @@ static void CommitMove(float target_x, float target_y, float target_z, float fee
 
 static ErrorCode_t StartMove(const QueuedMove_t *move, bool foreground)
 {
+    uint32_t duration_ms;
+    if (!ComputeDuration(s_status.planned_x_mm, s_status.planned_y_mm,
+                         s_status.planned_z_mm, move->target_x_mm, move->target_y_mm,
+                         move->target_z_mm, move->feedrate_mm_min, &duration_ms)) return ERR_OUT_OF_RANGE;
     ErrorCode_t result = PlanningService_StartLine(
         move->target_x_mm, move->target_y_mm, move->target_z_mm,
-        ComputeDuration(s_status.planned_x_mm, s_status.planned_y_mm,
-                        s_status.planned_z_mm, move->target_x_mm,
-                        move->target_y_mm, move->target_z_mm,
-                        move->feedrate_mm_min));
+        duration_ms);
     if (result == ERR_PENDING) {
         s_pending_move = (PendingMove_t){
             .active = true,
@@ -155,8 +162,13 @@ static ErrorCode_t StartMove(const QueuedMove_t *move, bool foreground)
     return result;
 }
 
+/** 主循环按预算推进规划；故障时取消待处理请求，禁止残留命令继续生成运动帧。 */
 void CommandService_Service(void)
 {
+    if (!MotionService_IsActionAllowed()) {
+        CommandService_AbortPending();
+        return;
+    }
     ErrorCode_t result;
     PlanningService_Service();
     if (s_pending_move.active && PlanningService_TakeStartResult(&result)) {
@@ -200,6 +212,15 @@ bool CommandService_IsMotionPending(void)
     return s_pending_move.active || PlanningService_IsBusy() || WaypointQueueCount() > 0U;
 }
 
+void CommandService_AbortPending(void)
+{
+    PlanningService_Cancel();
+    s_pending_move.active = false;
+    s_move_result_ready = false;
+    s_queued_move_result_ready = false;
+    WaypointQueueClearAndRebase();
+}
+
 bool CommandService_TakeMoveResult(ErrorCode_t *out_result)
 {
     if (!s_move_result_ready) return false;
@@ -221,10 +242,14 @@ uint16_t CommandService_GetQueuedMoveCount(void)
     return WaypointQueueCount();
 }
 
+/** ERR_PENDING=等待路径校验，ERR_QUEUED=已入坐标 FIFO；二者都不表示动作完成。 */
 ErrorCode_t CommandService_RunGCode(const GCodeFrame_t *frame)
 {
     if (!frame) return ERR_NULL_PARAM;
-    if (!SafetyService_IsMotionAllowed() && (frame->type == GCMD_G0 || frame->type == GCMD_G1))
+    bool action=frame->type==GCMD_G0 || frame->type==GCMD_G1 ||
+                frame->type==GCMD_M3 || frame->type==GCMD_M5;
+    /* 夹爪和移动共用启动/故障许可；Motion尚未映射给Safety时也不能接受动作。 */
+    if (action && !MotionService_IsActionAllowed())
         return ERR_BUSY;
     if (MotionService_IsClosedLoopRecoveryActive() &&
         (frame->type == GCMD_G0 || frame->type == GCMD_G1))
@@ -236,6 +261,7 @@ ErrorCode_t CommandService_RunGCode(const GCodeFrame_t *frame)
         float target_x = frame->has_x ? frame->x : s_enqueue_x_mm;
         float target_y = frame->has_y ? frame->y : s_enqueue_y_mm;
         float target_z = frame->has_z ? frame->z : s_enqueue_z_mm;
+        if (!isfinite(target_x) || !isfinite(target_y) || !isfinite(target_z)) return ERR_OUT_OF_RANGE;
         if (frame->has_f && ((float)frame->f > GCODE_MAX_FEEDRATE || frame->f == 0U))
             return ERR_OUT_OF_RANGE;
         float feedrate = frame->has_f ? (float)frame->f : s_enqueue_feedrate_mm_min;
@@ -265,20 +291,24 @@ ErrorCode_t CommandService_RunGCode(const GCodeFrame_t *frame)
         return result;
     }
     case GCMD_M3:
-        Svc_Gripper_Open();
-        return ERR_OK;
+        return Svc_Gripper_Open() ? ERR_OK : ERR_BUSY;
     case GCMD_M5:
-        Svc_Gripper_Close();
-        return ERR_OK;
+        return Svc_Gripper_Close() ? ERR_OK : ERR_BUSY;
     default:
         return ERR_OUT_OF_RANGE;
     }
 }
 
+/** 输入dx/dy/dz为mm；主循环单生产者调用。
+ * PS2自己的当前帧可继续运行，规划层最多再接受一个等待帧，避免每10ms轮询
+ * 都等待ISR完全排空造成段间空转。G-code和闭环恢复不得混入这个短帧管线。
+ * 松杆不丢弃已受理终点；失联/故障仍立即撤销当前帧和等待帧。 */
 ErrorCode_t CommandService_RunTeleopStep(float dx_mm, float dy_mm, float dz_mm)
 {
-    if (!SafetyService_IsMotionAllowed() || s_pending_move.active ||
+    if (!MotionService_IsActionAllowed() || s_pending_move.active ||
         WaypointQueueCount() > 0U || MotionService_IsClosedLoopRecoveryActive())
+        return ERR_BUSY;
+    if (!MotionService_IsIdle() && s_status.active_source != COMMAND_SOURCE_PS2)
         return ERR_BUSY;
 
     ErrorCode_t result = PlanningService_StartTeleopStep(dx_mm, dy_mm, dz_mm);
@@ -291,6 +321,12 @@ ErrorCode_t CommandService_RunTeleopStep(float dx_mm, float dy_mm, float dz_mm)
     s_status.active_source = COMMAND_SOURCE_PS2;
     s_status.generation++;
     PlatformCritical_Exit(state);
+    /* PS2与G-code共享坐标：这里已确认没有待处理串口路径点。
+     * 连同缺省轴/进给继承缓存一起同步，切回后的G1 X...才会保留最新Y/Z。 */
+    WaypointQueueClearAndRebase();
+    /* 遥操作也同步闭环目标到已受理理论步数，避免切回G-code后追逐旧目标。 */
+    MotionService_SyncClosedLoopTarget();
+    if (MotionService_HasFault()) return ERR_BUSY;
     return ERR_OK;
 }
 

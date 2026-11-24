@@ -1,4 +1,7 @@
-/** @file robot_home_pose.c @brief Post-homing pose and joint-limit model. */
+/**
+ * @file robot_home_pose.c
+ * @brief 回零参考模型：回零姿态、减速比和三轴方向约定。
+ */
 #include "robot_home_pose.h"
 #include "robot_config.h"
 
@@ -12,7 +15,7 @@ const RobotHomePose_t g_robot_home_pose = {
 float RobotHomePose_MotorDegToJointDeg(RobotHomeAxis_t axis, float motor_deg)
 {
     static const float direction[ROBOT_HOME_AXIS_COUNT] = {1.0f, -1.0f, -1.0f};
-    if (axis >= ROBOT_HOME_AXIS_COUNT) return 0.0f;
+    if ((unsigned)axis >= ROBOT_HOME_AXIS_COUNT) return 0.0f;
     return g_robot_home_pose.joint_deg[axis] + direction[axis] * motor_deg / GEAR_RATIO;
 }
 

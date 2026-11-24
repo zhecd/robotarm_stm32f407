@@ -1,3 +1,7 @@
+/**
+ * @file bsp_uart1_config.h
+ * @brief UART1 缓冲容量与行超时参数；与机械臂几何参数分离。
+ */
 #ifndef ROBOTARM_BSP_UART1_CONFIG_H
 #define ROBOTARM_BSP_UART1_CONFIG_H
 

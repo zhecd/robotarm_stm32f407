@@ -22,6 +22,9 @@
 #include "gpio.h"
 
 /* USER CODE BEGIN 0 */
+#if ROBOTARM_SEQUENTIAL_HOMING
+#include "app_isr_adapter.h"
+#endif
 
 /* USER CODE END 0 */
 
@@ -112,11 +115,25 @@ void MX_GPIO_Init(void)
 
   /*Configure GPIO pins : PCPin PCPin PCPin */
   GPIO_InitStruct.Pin = M1_STOP_Pin|M2_STOP_Pin|M3_STOP_Pin;
+#if ROBOTARM_LIMIT_STATE_MODE
+  /* 状态采样候选：普通上拉输入，不产生限位EXTI。持续按住是正常低电平。
+     1ms采样/停步与10ms稳定确认由逐轴服务负责，不能只删除中断保护。 */
+  GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
+#else
   GPIO_InitStruct.Mode = GPIO_MODE_IT_FALLING;
+#endif
   /* Limit switches are active-low contacts.  A pull-up prevents a floating
      input from generating a false emergency stop. */
   GPIO_InitStruct.Pull = GPIO_PULLUP;
   HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
+
+#if ROBOTARM_LIMIT_STATE_MODE
+  /* HAL普通输入配置不会主动清理旧EXTI配置；精确关闭这三线，保留按键等。 */
+  uint32_t limit_pins=M1_STOP_Pin|M2_STOP_Pin|M3_STOP_Pin;
+  EXTI->IMR&=~limit_pins;EXTI->EMR&=~limit_pins;
+  EXTI->RTSR&=~limit_pins;EXTI->FTSR&=~limit_pins;
+  __HAL_GPIO_EXTI_CLEAR_IT(limit_pins);
+#endif
 
   /*Configure GPIO pins : PDPin PDPin PDPin PDPin */
   GPIO_InitStruct.Pin = EN_Pin|M1_DIR_Pin|M2_DIR_Pin|M3_DIR_Pin;
@@ -129,6 +146,10 @@ void MX_GPIO_Init(void)
   HAL_NVIC_SetPriority(EXTI2_IRQn, 0, 0);
   HAL_NVIC_EnableIRQ(EXTI2_IRQn);
 
+  /* 逐轴候选先接管BOOT触点；不能等App_Init之后才处理上电已压住的开关。 */
+#if ROBOTARM_SEQUENTIAL_HOMING
+  App_ISR_OnLimitsConfigured();
+#endif
   HAL_NVIC_SetPriority(EXTI15_10_IRQn, 0, 0);
   HAL_NVIC_EnableIRQ(EXTI15_10_IRQn);
 

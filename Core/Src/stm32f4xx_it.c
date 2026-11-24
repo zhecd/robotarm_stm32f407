@@ -22,6 +22,12 @@
 #include "stm32f4xx_it.h"
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
+#include "platform_time.h"
+#include "app_isr_adapter.h"
+#include "bsp/bsp_robot_board.h"
+#if ROBOTARM_STARTUP_TRIAL_MODE
+void StartupTrial_FailFromException(void);
+#endif
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -70,6 +76,9 @@ extern DMA_HandleTypeDef hdma_usart1_rx;
   */
 void NMI_Handler(void)
 {
+#if ROBOTARM_STARTUP_TRIAL_MODE
+  StartupTrial_FailFromException();
+#endif
   /* USER CODE BEGIN NonMaskableInt_IRQn 0 */
 
   /* USER CODE END NonMaskableInt_IRQn 0 */
@@ -85,6 +94,9 @@ void NMI_Handler(void)
   */
 void HardFault_Handler(void)
 {
+#if ROBOTARM_STARTUP_TRIAL_MODE
+  StartupTrial_FailFromException();
+#endif
   /* USER CODE BEGIN HardFault_IRQn 0 */
 
   /* USER CODE END HardFault_IRQn 0 */
@@ -100,6 +112,9 @@ void HardFault_Handler(void)
   */
 void MemManage_Handler(void)
 {
+#if ROBOTARM_STARTUP_TRIAL_MODE
+  StartupTrial_FailFromException();
+#endif
   /* USER CODE BEGIN MemoryManagement_IRQn 0 */
 
   /* USER CODE END MemoryManagement_IRQn 0 */
@@ -115,6 +130,9 @@ void MemManage_Handler(void)
   */
 void BusFault_Handler(void)
 {
+#if ROBOTARM_STARTUP_TRIAL_MODE
+  StartupTrial_FailFromException();
+#endif
   /* USER CODE BEGIN BusFault_IRQn 0 */
 
   /* USER CODE END BusFault_IRQn 0 */
@@ -130,6 +148,9 @@ void BusFault_Handler(void)
   */
 void UsageFault_Handler(void)
 {
+#if ROBOTARM_STARTUP_TRIAL_MODE
+  StartupTrial_FailFromException();
+#endif
   /* USER CODE BEGIN UsageFault_IRQn 0 */
 
   /* USER CODE END UsageFault_IRQn 0 */
@@ -189,6 +210,10 @@ void SysTick_Handler(void)
   /* USER CODE END SysTick_IRQn 0 */
   HAL_IncTick();
   /* USER CODE BEGIN SysTick_IRQn 1 */
+  PlatformTime_OnTickFromISR();
+#if ROBOTARM_SEQUENTIAL_HOMING
+    App_ISR_OnMillisecond();
+#endif
 
   /* USER CODE END SysTick_IRQn 1 */
 }
@@ -239,11 +264,10 @@ void USART1_IRQHandler(void)
 void EXTI15_10_IRQHandler(void)
 {
   /* USER CODE BEGIN EXTI15_10_IRQn 0 */
-
+  App_ISR_OnLimitVectorEnter();
   /* USER CODE END EXTI15_10_IRQn 0 */
-  HAL_GPIO_EXTI_IRQHandler(M1_STOP_Pin);
-  HAL_GPIO_EXTI_IRQHandler(M2_STOP_Pin);
-  HAL_GPIO_EXTI_IRQHandler(M3_STOP_Pin);
+  BSP_RobotBoard_DispatchLimitInterrupts();
+  App_ISR_OnLimitVectorExit();
   /* USER CODE BEGIN EXTI15_10_IRQn 1 */
 
   /* USER CODE END EXTI15_10_IRQn 1 */

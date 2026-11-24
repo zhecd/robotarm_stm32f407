@@ -2,6 +2,7 @@
 #include <math.h>
 #include <stdint.h>
 #include <stdio.h>
+#include <limits.h>
 
 #include "app/app_gcode_parser.h"
 #include "algorithm/kinematics.h"
@@ -62,6 +63,20 @@ static void TestClosedLoopUnitConvention(void)
 
 int main(void)
 {
+    GCodeFrame_t extra;
+    assert(!App_GCodeParser_ParseLine("G1 F-1",&extra));
+    assert(!App_GCodeParser_ParseLine("G1 F4294967296",&extra));
+    assert(!App_GCodeParser_ParseLine("G1 Xnan",&extra));
+    assert(!App_GCodeParser_ParseLine("G1 X1e999",&extra));
+    assert(!App_GCodeParser_ParseLine("M999999999999999999999",&extra));
+    assert(App_GCodeParser_ParseLine("M112",&extra) && extra.type==GCMD_M112);
+    assert(App_GCodeParser_ParseLine("M115",&extra) && extra.type==GCMD_M115);
+    assert(App_GCodeParser_ParseLine("M408",&extra) && extra.type==GCMD_M408);
+    assert(App_GCodeParser_ParseLine("M409",&extra) && extra.type==GCMD_M409);
+    assert(!App_GCodeParser_ParseLine("M409 X1",&extra));
+    assert(App_GCodeParser_ParseLine("M410",&extra) && extra.type==GCMD_M410);
+    assert(!App_GCodeParser_ParseLine("M410 X1",&extra));
+    assert(RobotMath_MaxAbs3(INT32_MIN,0,1)==2147483648U);
     TestGCodeParser();
     TestKinematics();
     TestClosedLoopUnitConvention();

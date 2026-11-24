@@ -1,3 +1,7 @@
+/**
+ * @file platform_critical.c
+ * @brief 临界区适配：保存并恢复原中断状态，保护短时间共享数据复制。
+ */
 #include "platform_critical.h"
 
 #include "main.h"

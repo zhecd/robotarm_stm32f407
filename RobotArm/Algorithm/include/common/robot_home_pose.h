@@ -1,4 +1,7 @@
-/** @file robot_home_pose.h @brief Post-homing pose and joint-limit model. */
+/**
+ * @file robot_home_pose.h
+ * @brief 回零参考模型：回零姿态、减速比和三轴方向约定。
+ */
 #ifndef ROBOTARM_ROBOT_HOME_POSE_H
 #define ROBOTARM_ROBOT_HOME_POSE_H
 

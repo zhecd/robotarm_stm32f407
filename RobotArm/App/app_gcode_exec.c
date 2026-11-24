@@ -1,3 +1,7 @@
+/**
+ * @file app_gcode_exec.c
+ * @brief G-code 执行适配：委托命令服务，隔离协议会话与业务实现。
+ */
 #include "app/app_gcode_exec.h"
 
 #include "command_service.h"

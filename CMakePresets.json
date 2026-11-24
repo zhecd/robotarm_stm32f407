@@ -8,7 +8,9 @@
             "binaryDir": "${sourceDir}/build/${presetName}",
             "toolchainFile": "${sourceDir}/cmake/gcc-arm-none-eabi.cmake",
             "cacheVariables": {
-                "CMAKE_EXPORT_COMPILE_COMMANDS": "ON"
+                "CMAKE_EXPORT_COMPILE_COMMANDS": "ON",
+                "ROBOTARM_DIAGNOSTIC_ENCODERS": "ON",
+                "ROBOTARM_WAVEFORM_MODE": "OFF"
             }
         },
         {
@@ -38,9 +40,295 @@
             "cacheVariables": {
                 "CMAKE_BUILD_TYPE": "MinSizeRel"
             }
+        },
+        {
+            "name": "TeachingDebug",
+            "inherits": "default",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Debug",
+                "ROBOTARM_DIAGNOSTIC_MODE": "OFF"
+            }
+        },
+        {
+            "name": "TeachingDiagnostics",
+            "inherits": "default",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Debug",
+                "ROBOTARM_DIAGNOSTIC_MODE": "ON"
+            }
+        },
+        {
+            "name": "TeachingRelease",
+            "inherits": "default",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Release",
+                "ROBOTARM_DIAGNOSTIC_MODE": "OFF"
+            }
+        },
+        {
+            "name": "TeachingWaveform",
+            "inherits": "default",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Debug",
+                "ROBOTARM_DIAGNOSTIC_MODE": "OFF",
+                "ROBOTARM_WAVEFORM_MODE": "ON"
+            }
+        },
+        {
+            "name": "TeachingLimitOnly",
+            "inherits": "TeachingDiagnostics",
+            "cacheVariables": {
+                "ROBOTARM_DIAGNOSTIC_ENCODERS": "OFF"
+            }
+        },
+        {
+            "name": "HostTests",
+            "generator": "Ninja",
+            "binaryDir": "${sourceDir}/build/HostTests",
+            "cacheVariables": {
+                "ROBOTARM_HOST_TESTS_ONLY": "ON",
+                "CMAKE_BUILD_TYPE": "Debug",
+                "CMAKE_C_COMPILER": "gcc"
+            }
+        },
+        {
+            "name": "HostTestsRelease",
+            "generator": "Ninja",
+            "binaryDir": "${sourceDir}/build/HostTestsRelease",
+            "cacheVariables": {
+                "ROBOTARM_HOST_TESTS_ONLY": "ON",
+                "CMAKE_BUILD_TYPE": "Release",
+                "CMAKE_C_COMPILER": "gcc"
+            }
+        },
+        {
+            "name": "TeachingExtiProbe",
+            "inherits": "default",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Debug",
+                "ROBOTARM_LIMIT_PROBE_MODE": "ON",
+                "ROBOTARM_DIAGNOSTIC_MODE": "OFF"
+            }
+        },
+        {
+            "name": "TeachingExtiProbeUart",
+            "inherits": "TeachingExtiProbe",
+            "cacheVariables": {
+                "LIMIT_PROBE_UART": "ON"
+            }
+        },
+        {
+            "name": "TeachingTmcConfigProbe",
+            "inherits": "default",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Debug",
+                "ROBOTARM_TMC_CONFIG_PROBE_MODE": "ON",
+                "ROBOTARM_DIAGNOSTIC_MODE": "OFF",
+                "ROBOTARM_WAVEFORM_MODE": "OFF"
+            }
+        },
+        {
+            "name": "TeachingStartupAudit",
+            "inherits": "default",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Debug",
+                "ROBOTARM_STARTUP_AUDIT_MODE": "ON",
+                "ROBOTARM_DIAGNOSTIC_MODE": "OFF",
+                "ROBOTARM_WAVEFORM_MODE": "OFF"
+            }
+        },
+        {
+            "name": "TeachingM1HomingPrepare",
+            "inherits": "default",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Debug",
+                "ROBOTARM_M1_HOME_MODE": "ON",
+                "M1_HOME_MOTION_ENABLED": "OFF",
+                "SINGLE_AXIS_ID": "1",
+                "ROBOTARM_DIAGNOSTIC_MODE": "OFF",
+                "ROBOTARM_WAVEFORM_MODE": "OFF"
+            }
+        },
+        {
+            "name": "TeachingM2HomingPrepare",
+            "inherits": "TeachingM1HomingPrepare",
+            "cacheVariables": {
+                "SINGLE_AXIS_ID": "2",
+                "M1_HOME_MOTION_ENABLED": "OFF"
+            }
+        },
+        {
+            "name": "TeachingM3HomingPrepare",
+            "inherits": "TeachingM1HomingPrepare",
+            "cacheVariables": {
+                "SINGLE_AXIS_ID": "3",
+                "M1_HOME_MOTION_ENABLED": "OFF"
+            }
+        },
+        {
+            "name": "TeachingGripperPrepare",
+            "inherits": "default",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Debug",
+                "ROBOTARM_GRIPPER_TEST_MODE": "ON",
+                "GRIPPER_TEST_MOTION_ENABLED": "OFF",
+                "ROBOTARM_DIAGNOSTIC_MODE": "OFF",
+                "ROBOTARM_WAVEFORM_MODE": "OFF"
+            }
+        },
+        {
+            "name": "TeachingStartupPrepare",
+            "inherits": "default",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Debug",
+                "ROBOTARM_STARTUP_TRIAL_MODE": "ON",
+                "STARTUP_TRIAL_MOTION_ENABLED": "OFF",
+                "ROBOTARM_DIAGNOSTIC_MODE": "OFF",
+                "ROBOTARM_WAVEFORM_MODE": "OFF"
+            }
+        },
+        {
+            "name": "TeachingStartupIrqAudit",
+            "inherits": "TeachingStartupAudit",
+            "cacheVariables": {
+                "ROBOTARM_IRQ_EVIDENCE_MODE": "ON"
+            }
+        },
+        {
+            "name": "TeachingSequentialDebug",
+            "inherits": "TeachingDebug",
+            "cacheVariables": {
+                "ROBOTARM_SEQUENTIAL_HOMING": "ON"
+            }
+        },
+        {
+            "name": "TeachingSequentialAudit",
+            "inherits": "TeachingStartupAudit",
+            "cacheVariables": {
+                "ROBOTARM_SEQUENTIAL_HOMING": "ON"
+            }
+        },
+        {
+            "name": "TeachingSequentialPrepare",
+            "inherits": "TeachingStartupPrepare",
+            "cacheVariables": {
+                "ROBOTARM_SEQUENTIAL_HOMING": "ON",
+                "ROBOTARM_IRQ_EVIDENCE_MODE": "ON"
+            }
+        },
+        {
+            "name": "TeachingSequentialMotion",
+            "inherits": "TeachingSequentialPrepare",
+            "cacheVariables": {
+                "STARTUP_TRIAL_MOTION_ENABLED": "ON"
+            }
+        },
+        {
+            "name": "TeachingGpioLocked",
+            "inherits": "default",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Debug",
+                "ROBOTARM_SEQUENTIAL_HOMING": "ON",
+                "ROBOTARM_LIMIT_STATE_MODE": "ON",
+                "ROBOTARM_STARTUP_TRIAL_MODE": "ON",
+                "ROBOTARM_IRQ_EVIDENCE_MODE": "ON",
+                "STARTUP_TRIAL_MOTION_ENABLED": "OFF"
+            }
+        },
+        {
+            "name": "TeachingGpioTrial",
+            "inherits": "default",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Debug",
+                "ROBOTARM_SEQUENTIAL_HOMING": "ON",
+                "ROBOTARM_LIMIT_STATE_MODE": "ON",
+                "ROBOTARM_STARTUP_TRIAL_MODE": "ON",
+                "ROBOTARM_IRQ_EVIDENCE_MODE": "ON",
+                "STARTUP_TRIAL_MOTION_ENABLED": "ON"
+            }
+        },
+        {
+            "name": "TeachingGpioDebug",
+            "inherits": "default",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Debug",
+                "ROBOTARM_SEQUENTIAL_HOMING": "ON",
+                "ROBOTARM_LIMIT_STATE_MODE": "ON"
+            }
+        },
+        {
+            "name": "TeachingGpioRelease",
+            "inherits": "default",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Release",
+                "ROBOTARM_SEQUENTIAL_HOMING": "ON",
+                "ROBOTARM_LIMIT_STATE_MODE": "ON"
+            }
+        },
+        {
+            "name": "ProductionLocked",
+            "displayName": "ProductionLocked",
+            "description": "普通GPIO限位；编译禁止动作，用于部署前检查；三轴并行寻限位后并行退回",
+            "inherits": "TeachingGpioLocked",
+            "cacheVariables": {
+                "ROBOTARM_PARALLEL_HOMING": "ON"
+            }
+        },
+        {
+            "name": "ProductionTrial",
+            "displayName": "ProductionTrial",
+            "description": "普通GPIO限位；等待显式单次START，结束禁用；三轴并行寻限位后并行退回",
+            "inherits": "TeachingGpioTrial",
+            "cacheVariables": {
+                "ROBOTARM_PARALLEL_HOMING": "ON"
+            }
+        },
+        {
+            "name": "ProductionDebug",
+            "displayName": "ProductionDebug",
+            "description": "正式运行；上电关闭夹爪，三轴并行寻位、全部稳定触发后并行退回，READY保持使能",
+            "inherits": "TeachingGpioDebug",
+            "cacheVariables": {
+                "ROBOTARM_PARALLEL_HOMING": "ON"
+            }
+        },
+        {
+            "name": "ProductionRelease",
+            "displayName": "ProductionRelease",
+            "description": "正式运行；上电关闭夹爪，三轴并行寻位、全部稳定触发后并行退回，READY保持使能",
+            "inherits": "TeachingGpioRelease",
+            "cacheVariables": {
+                "ROBOTARM_PARALLEL_HOMING": "ON"
+            }
+        },
+        {
+            "name": "ProductionHoldLocked",
+            "description": "显式单次回零后保持10秒；租约及截止保留，禁止新STEP，完成断能；三轴并行寻限位后并行退回",
+            "inherits": "ProductionLocked",
+            "cacheVariables": {
+                "STARTUP_TRIAL_READY_HOLD_MS": "10000",
+                "ROBOTARM_PARALLEL_HOMING": "ON"
+            }
+        },
+        {
+            "name": "ProductionHoldTrial",
+            "description": "显式单次回零后保持10秒；租约及截止保留，禁止新STEP，完成断能；三轴并行寻限位后并行退回",
+            "inherits": "ProductionTrial",
+            "cacheVariables": {
+                "STARTUP_TRIAL_READY_HOLD_MS": "10000",
+                "ROBOTARM_PARALLEL_HOMING": "ON"
+            }
         }
     ],
     "buildPresets": [
+        {
+            "name": "TeachingLimitOnly",
+            "configurePreset": "TeachingLimitOnly"
+        },
+        {
+            "name": "TeachingWaveform",
+            "configurePreset": "TeachingWaveform"
+        },
         {
             "name": "Debug",
             "configurePreset": "Debug"
@@ -56,6 +344,122 @@
         {
             "name": "MinSizeRel",
             "configurePreset": "MinSizeRel"
+        },
+        {
+            "name": "TeachingDebug",
+            "configurePreset": "TeachingDebug"
+        },
+        {
+            "name": "TeachingDiagnostics",
+            "configurePreset": "TeachingDiagnostics"
+        },
+        {
+            "name": "TeachingRelease",
+            "configurePreset": "TeachingRelease"
+        },
+        {
+            "name": "HostTests",
+            "configurePreset": "HostTests"
+        },
+        {
+            "name": "HostTestsRelease",
+            "configurePreset": "HostTestsRelease"
+        },
+        {
+            "name": "TeachingExtiProbe",
+            "configurePreset": "TeachingExtiProbe"
+        },
+        {
+            "name": "TeachingExtiProbeUart",
+            "configurePreset": "TeachingExtiProbeUart"
+        },
+        {
+            "name": "TeachingTmcConfigProbe",
+            "configurePreset": "TeachingTmcConfigProbe"
+        },
+        {
+            "name": "TeachingStartupAudit",
+            "configurePreset": "TeachingStartupAudit"
+        },
+        {
+            "name": "TeachingM1HomingPrepare",
+            "configurePreset": "TeachingM1HomingPrepare"
+        },
+        {
+            "name": "TeachingM2HomingPrepare",
+            "configurePreset": "TeachingM2HomingPrepare"
+        },
+        {
+            "name": "TeachingM3HomingPrepare",
+            "configurePreset": "TeachingM3HomingPrepare"
+        },
+        {
+            "name": "TeachingGripperPrepare",
+            "configurePreset": "TeachingGripperPrepare"
+        },
+        {
+            "name": "TeachingStartupPrepare",
+            "configurePreset": "TeachingStartupPrepare"
+        },
+        {
+            "name": "TeachingStartupIrqAudit",
+            "configurePreset": "TeachingStartupIrqAudit"
+        },
+        {
+            "name": "TeachingSequentialDebug",
+            "configurePreset": "TeachingSequentialDebug"
+        },
+        {
+            "name": "TeachingSequentialAudit",
+            "configurePreset": "TeachingSequentialAudit"
+        },
+        {
+            "name": "TeachingSequentialPrepare",
+            "configurePreset": "TeachingSequentialPrepare"
+        },
+        {
+            "name": "TeachingSequentialMotion",
+            "configurePreset": "TeachingSequentialMotion"
+        },
+        {
+            "name": "TeachingGpioLocked",
+            "configurePreset": "TeachingGpioLocked"
+        },
+        {
+            "name": "TeachingGpioTrial",
+            "configurePreset": "TeachingGpioTrial"
+        },
+        {
+            "name": "TeachingGpioDebug",
+            "configurePreset": "TeachingGpioDebug"
+        },
+        {
+            "name": "TeachingGpioRelease",
+            "configurePreset": "TeachingGpioRelease"
+        },
+        {
+            "name": "ProductionLocked",
+            "configurePreset": "ProductionLocked"
+        },
+        {
+            "name": "ProductionTrial",
+            "configurePreset": "ProductionTrial"
+        },
+        {
+            "name": "ProductionDebug",
+            "configurePreset": "ProductionDebug"
+        },
+        {
+            "name": "ProductionRelease",
+            "configurePreset": "ProductionRelease"
+        },
+        {
+            "name": "ProductionHoldLocked",
+            "configurePreset": "ProductionHoldLocked"
+        },
+        {
+            "name": "ProductionHoldTrial",
+            "configurePreset": "ProductionHoldTrial"
         }
     ]
 }

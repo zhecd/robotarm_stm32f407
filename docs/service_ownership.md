@@ -1,16 +1,18 @@
-# 服务状态所有权
+# 模块职责与状态归属
 
-每一项可变状态只由一个服务或内部控制器写入，其他模块通过公开查询接口或事件读取。这一约束避免命令、规划、闭环和中断路径同时修改同一状态。
-
-| 模块 | 拥有的状态 | 主要写入时机 |
+| 模块 | 保存的状态 | 公开意图与边界 |
 |---|---|---|
-| CommandService | 命令来源、规划坐标、进给速度、路径点 FIFO | G-code 或 PS2 命令被接受时 |
-| PlanningService / Ctrl_Planner | 当前路径校验和流式生成状态 | 规划服务周期运行时 |
-| MotionService / Ctrl_MotionEngine | 运动帧队列、当前 STEP 帧、理论步数、Motion 故障事件 | 主循环服务和 TIM6 中断 |
-| Ctrl_ClosedLoop | 编码器滤波、闭环目标和恢复轨迹 | 闭环周期运行时 |
-| StateService | 编码器采样和关节角度快照 | 编码器读取成功或失败时 |
-| SafetyService | 回零标志、运动许可和锁存故障 | AppRuntime 处理 Motion 故障或回零完成时 |
-| HomingService | 回零状态机 | 回零服务周期运行时 |
-| GripperService | 夹爪服务动作与空闲停止 | M3/M5 或 PS2 输入时 |
+| AppSerial | 会话模式、待校验回复、M400 等待、恢复请求 | 解析和回复，不直接回零或访问 HAL |
+| AppRuntime | 启动/回零/失败、恢复来源、模式切换请求 | 调度和故障映射，不拥有队列或 PID |
+| AppTeleop | 手柄模式、采样周期、按键前值 | 提交遥操作增量与夹爪意图 |
+| CommandService | 最后接受的参考位置、F、16 点 FIFO、异步结果 | 缺省参数继承、来源仲裁、撤销待执行动作 |
+| PlanningService / Ctrl_Planner | 当前路径、校验索引、生成索引、队列等待时间 | 先完整校验，再流式生成帧；通过 Motion 公开接口提交 |
+| MotionService / Ctrl_MotionEngine | 当前帧、63 帧可用队列、插补累计量、首个故障 | STEP 执行、限位暂停/消抖、一次性故障事件 |
+| Ctrl_ClosedLoop | PID、滤波、误差、恢复轨迹、失败计数 | 保持原目标，补偿不改变规划理论位置 |
+| SafetyService | homed、motion_allowed、首个故障 | 锁存与授权，不调用运动服务 |
+| StateService | 单轴角度、有效性、时间戳、generation | 发布和复制反馈快照 |
+| Svc_Homing | 寻限位/退回/完成/失败、逐轴进度 | 在专用启动/恢复阶段直接推进设备，每次调用工作量有界 |
+| Device | 逻辑设备到具体器件的组合 | 公共接口不带 HAL 句柄和 GPIO 引脚 |
+| BSP / driver | 外设绑定、传输缓冲和器件实例 | GPIO/I2C/UART/PWM/STEP 的具体操作 |
 
-`MotionService` 的理论步数表示已被规划器接受的电机侧目标，不等同于编码器实时测量。`StateService` 保存的是测量值；两者的偏差由闭环控制器处理。
+取消动作必须同时撤销 Command、Planner 和 Motion 的未来工作。普通清队列仅删除排队帧，保留当前帧；软件停止与故障使用 AbortForFault。安全状态清除必须发生在本轮回零和编码器标定成功之后。

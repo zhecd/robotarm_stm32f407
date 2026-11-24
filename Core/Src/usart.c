@@ -107,7 +107,10 @@ void HAL_UART_MspInit(UART_HandleTypeDef* uartHandle)
     GPIO_InitStruct.Pin = GPIO_PIN_9|GPIO_PIN_10;
     GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
     GPIO_InitStruct.Pull = GPIO_NOPULL;
-    GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_VERY_HIGH;
+    /* 上位机串口固定115200；选择已验证正常通信的LOW输出速度档位。
+       历史PA9档位对照曾出现0/12/0，2026-10-20两种负载复测均未复现；
+       保留LOW不等于确认M3根因。不改限位配置；CubeMX也保持LOW。 */
+    GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
     GPIO_InitStruct.Alternate = GPIO_AF7_USART1;
     HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
 
